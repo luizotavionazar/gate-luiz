@@ -8,6 +8,8 @@ import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenRecuperac
 import br.com.luizotavionazar.authluiz.domain.autenticacao.event.UsuarioCadastradoEvent;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.ControleRecuperacaoSenhaRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenRecuperacaoSenhaRepository;
+import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
+import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
@@ -41,13 +43,14 @@ public class AutenticacaoService {
     private final EmailService emailService;
     private final ControleRecuperacaoSenhaRepository controleRecuperacaoSenhaRepository;
     private final PoliticaSenhaService politicaSenhaService;
-    private final TokenRecuperacaoSenhaService tokenRecuperacaoSenhaService;
+    private final IdentidadeExternaRepository identidadeExternaRepository;
+    private final TokenRecuperacaoSenhaExpiracaoService tokenRecuperacaoSenhaExpiracaoService;
 
     private static final long COOLDOWN_TOKEN_MINUTES = 2;
-    private static final long EXPIRACAO_TOKEN_MINUTES = 30;
+    private static final long EXPIRACAO_TOKEN_MINUTES = 1;
     private static final long JANELA_IP_MINUTES = 10;
     private static final int LIMITE_TENTATIVAS_IP = 5;
-    private static final long BLOQUEIO_IP_MINUTES = 10;
+    private static final long BLOQUEIO_IP_MINUTES = 2;
 
     @Transactional
     public CadastroResponse cadastrar(CadastroRequest request) {
@@ -73,23 +76,22 @@ public class AutenticacaoService {
         Usuario usuario = usuarioRepository.findByEmail(emailNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha incorretos!"));
 
+        if (!usuario.possuiSenhaLocal()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Esta conta não possui senha local cadastrada. Entre com Google ou defina uma senha local.");
+        }
+
         if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha incorretos!");
         }
 
         String token = jwtService.gerarToken(usuario);
-        return LoginResponse.from(usuario, token, jwtService.getExpirationMinutes());
-    }
-
-    @Transactional(readOnly = true)
-    public ContaResponse obterMinhaConta(Integer idUsuario) {
-        Usuario usuario = usuarioRepository.findById(idUsuario)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
-        return ContaResponse.from(usuario);
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(), ProviderExterno.GOOGLE);
+        return LoginResponse.from(usuario, temLoginGoogle, token, jwtService.getExpirationMinutes());
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request, String ip) {
+    public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request, String ip) {
         validarLimitePorIp(ip);
 
         String emailNormalizado = request.emailNormalizado();
@@ -98,20 +100,20 @@ public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request,
             LocalDateTime agora = LocalDateTime.now();
 
             tokenRecuperacaoSenhaRepository
-                .findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(usuario.getId())
-                .ifPresent(tokenAnterior -> {
-                    if (!tokenAnterior.expirado()) {
-                        if (agora.isBefore(tokenAnterior.getDataCriacao().plusMinutes(COOLDOWN_TOKEN_MINUTES))) {
+                    .findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(usuario.getId())
+                    .ifPresent(tokenAnterior -> {
+                        if (!tokenAnterior.expirado()) {
+                            if (agora.isBefore(tokenAnterior.getDataCriacao().plusMinutes(COOLDOWN_TOKEN_MINUTES))) {
+                                return;
+                            }
+                            tokenAnterior.setEncerradoEm(agora);
+                            tokenRecuperacaoSenhaRepository.saveAndFlush(tokenAnterior);
                             return;
                         }
+
                         tokenAnterior.setEncerradoEm(agora);
                         tokenRecuperacaoSenhaRepository.saveAndFlush(tokenAnterior);
-                        return;
-                    }
-                
-                    tokenAnterior.setEncerradoEm(agora);
-                    tokenRecuperacaoSenhaRepository.saveAndFlush(tokenAnterior);
-                });
+                    });
 
             boolean aindaExisteTokenAtivo = tokenRecuperacaoSenhaRepository
                     .findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(usuario.getId())
@@ -151,14 +153,14 @@ public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request,
         }
 
         if (token.expirado()) {
-            tokenRecuperacaoSenhaService.encerrarSeExpirado(token);
+            tokenRecuperacaoSenhaExpiracaoService.encerrarSeExpirado(token);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!");
         }
 
         politicaSenhaService.validar(request.novaSenha());
 
         Usuario usuario = token.getUsuario();
-        if (passwordEncoder.matches(request.novaSenha(), usuario.getSenhaHash())) {
+        if (usuario.possuiSenhaLocal() && passwordEncoder.matches(request.novaSenha(), usuario.getSenhaHash())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A nova senha deve ser diferente da atual!");
         }
 
@@ -185,7 +187,7 @@ public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request,
         }
 
         if (token.expirado()) {
-            tokenRecuperacaoSenhaService.encerrarSeExpirado(token);
+            tokenRecuperacaoSenhaExpiracaoService.encerrarSeExpirado(token);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!");
         }
 

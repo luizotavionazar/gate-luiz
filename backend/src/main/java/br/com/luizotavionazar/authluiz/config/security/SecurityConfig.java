@@ -39,9 +39,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/setup/**", "/error").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/cadastro", "/auth/login", "/auth/recuperacao/iniciar", "/auth/recuperacao/redefinir").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/auth/cadastro",
+                                "/auth/login",
+                                "/auth/oauth/google",
+                                "/auth/recuperacao/iniciar",
+                                "/auth/recuperacao/redefinir"
+                        ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/recuperacao/validar").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/auth/me/nome", "/auth/me/email", "/auth/me/senha").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(setupFilter, org.springframework.security.web.context.SecurityContextHolderFilter.class)

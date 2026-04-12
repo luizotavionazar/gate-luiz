@@ -34,7 +34,7 @@ public class Usuario implements UserDetails {
     private String email;
 
     @ToString.Exclude
-    @Column(name = "senhaHash", nullable = false, length = 255)
+    @Column(name = "senhaHash", length = 255)
     private String senhaHash;
 
     @CreationTimestamp
@@ -44,6 +44,10 @@ public class Usuario implements UserDetails {
     @UpdateTimestamp
     @Column(name = "dataAtualiza")
     private LocalDateTime dataAtualiza;
+
+    public boolean possuiSenhaLocal() {
+        return senhaHash != null && !senhaHash.isBlank();
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

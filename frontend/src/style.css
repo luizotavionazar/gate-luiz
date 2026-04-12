@@ -27,3 +27,10 @@ body {
 .no-password-reveal::-ms-clear {
   display: none;
 }
+.google-button-host {
+  min-height: 44px;
+}
+
+.google-button-host > div {
+  width: 100% !important;
+}

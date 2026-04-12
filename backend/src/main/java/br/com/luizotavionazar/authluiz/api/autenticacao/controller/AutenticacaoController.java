@@ -2,7 +2,6 @@ package br.com.luizotavionazar.authluiz.api.autenticacao.controller;
 
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroResponse;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
@@ -14,8 +13,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -34,12 +31,6 @@ public class AutenticacaoController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(autenticacaoService.login(request));
-    }
-
-    @GetMapping("/me")
-    public ResponseEntity<ContaResponse> minhaConta(@AuthenticationPrincipal Jwt jwt) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(autenticacaoService.obterMinhaConta(idUsuario));
     }
 
     @PostMapping("/recuperacao/iniciar")

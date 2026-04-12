@@ -5,6 +5,7 @@ import ContaView from '../views/ContaView.vue'
 import RecuperarSenhaView from '../views/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/RedefinirSenhaView.vue'
 import SetupView from '../views/SetupView.vue'
+import VincularContaGoogleView from '../views/VincularContaGoogleView.vue'
 import { getToken, isTokenExpired, logout } from '../services/autenticacaoService'
 import { obterStatusSetup } from '../services/setupService'
 
@@ -12,6 +13,7 @@ const routes = [
   { path: '/', redirect: '/login' },
   { path: '/login', name: 'login', component: LoginView },
   { path: '/cadastro', name: 'cadastro', component: CadastroView },
+  { path: '/login/google/vincular', name: 'login-google-vincular', component: VincularContaGoogleView },
   { path: '/conta', name: 'conta', component: ContaView, meta: { requiresAuth: true } },
   { path: '/recuperar-senha', name: 'recuperar-senha', component: RecuperarSenhaView },
   { path: '/redefinir-senha', name: 'redefinir-senha', component: RedefinirSenhaView },
@@ -48,7 +50,7 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  if ((to.path === '/login' || to.path === '/cadastro') && token && !isTokenExpired()) {
+  if ((to.path === '/login' || to.path === '/cadastro' || to.path === '/login/google/vincular') && token && !isTokenExpired()) {
     return next('/conta')
   }
 
