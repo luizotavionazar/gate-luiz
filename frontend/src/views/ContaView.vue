@@ -24,9 +24,8 @@
         </div>
 
         <div v-if="conta.emailPendente" class="alert alert-info mb-4">
-          <strong>Alteração de e-mail pendente.</strong>
-          Um e-mail de confirmação foi enviado para <strong>{{ conta.emailPendente }}</strong>.
-          Clique no link recebido para concluir a alteração.
+          <strong>Alteração de e-mail pendente!<br></strong>
+          Acesse o link de confirmação enviado para <strong>{{ conta.emailPendente }}<br></strong>
         </div>
         <div class="card shadow border-0 rounded-4 mb-4">
           <div class="card-body p-4">
@@ -365,7 +364,8 @@ async function salvarNome() {
   try {
     conta.value = await atualizarMeuNome({ nome: formNome.nome.trim() })
     atualizarSessaoComConta(conta.value)
-    mensagemNome.value = 'Nome atualizado com sucesso.'
+    mensagemNome.value = 'Nome atualizado com sucesso!'
+    setTimeout(() => window.location.reload(), 2400)
   } catch (e) {
     erroNome.value = extrairMensagemErro(e, 'Não foi possível atualizar o nome.')
     console.error(e)
@@ -383,7 +383,7 @@ async function salvarEmail() {
     conta.value = await atualizarMeuEmail({ email: formEmail.email.trim() })
     atualizarSessaoComConta(conta.value)
     if (conta.value.emailPendente) {
-      mensagemEmail.value = `Confirmação enviada para ${conta.value.emailPendente}. Clique no link recebido por e-mail para concluir a alteração.`
+      mensagemEmail.value = `Confirme a alteração no link enviado para ${conta.value.emailPendente}!`
     } else {
       mensagemEmail.value = 'E-mail atualizado com sucesso.'
     }

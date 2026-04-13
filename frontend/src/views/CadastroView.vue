@@ -114,7 +114,7 @@ async function enviarCadastro() {
   try {
     await cadastrar({ nome: form.nome.trim(), email: form.email.trim(), senha: form.senha })
     sucesso.value = 'Cadastro realizado com sucesso! Redirecionando para o login...'
-    setTimeout(() => router.push('/login'), 1200)
+    setTimeout(() => router.push('/login'), 3200)
   } catch (e) {
     erro.value = extrairMensagemErro(e, 'Não foi possível realizar o cadastro.')
     console.error(e)
