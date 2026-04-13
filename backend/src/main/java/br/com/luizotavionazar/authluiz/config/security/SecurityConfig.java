@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 "/auth/recuperacao/redefinir"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/recuperacao/validar").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/auth/verificacao/confirmar").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/auth/me/nome", "/auth/me/email", "/auth/me/senha").authenticated()
                         .anyRequest().authenticated()

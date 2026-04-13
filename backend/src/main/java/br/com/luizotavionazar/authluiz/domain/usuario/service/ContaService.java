@@ -6,10 +6,16 @@ import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.ControleAlteracaoEmail;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.ControleAlteracaoEmailRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenRecuperacaoSenhaRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.PoliticaSenhaService;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.TokenConfirmacaoService;
+import br.com.luizotavionazar.authluiz.domain.configuracao.service.SetupService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
+import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +31,19 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class ContaService {
 
+    private static final long JANELA_ALTERACAO_EMAIL_MINUTES = 1440;
+    private static final int LIMITE_ALTERACAO_EMAIL = 5;
+    private static final long BLOQUEIO_ALTERACAO_EMAIL_MINUTES = 1440;
+
     private final UsuarioRepository usuarioRepository;
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final PasswordEncoder passwordEncoder;
     private final PoliticaSenhaService politicaSenhaService;
     private final TokenRecuperacaoSenhaRepository tokenRecuperacaoSenhaRepository;
+    private final SetupService setupService;
+    private final TokenConfirmacaoService tokenConfirmacaoService;
+    private final ControleAlteracaoEmailRepository controleAlteracaoEmailRepository;
+    private final EmailService emailService;
 
     @Transactional(readOnly = true)
     public ContaResponse obterMinhaConta(Integer idUsuario) {
@@ -48,7 +62,7 @@ public class ContaService {
     }
 
     @Transactional
-    public ContaResponse atualizarEmail(Integer idUsuario, AtualizarEmailRequest request) {
+    public ContaResponse atualizarEmail(Integer idUsuario, AtualizarEmailRequest request, String ip) {
         Usuario usuario = buscarUsuario(idUsuario);
 
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(), ProviderExterno.GOOGLE);
@@ -63,14 +77,39 @@ public class ContaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "E-mail já cadastrado!");
         }
 
-        usuario.setEmail(emailNormalizado);
+        boolean confirmacaoHabilitada = setupService.obter().isConfirmacaoEmailHabilitada();
+
+        if (confirmacaoHabilitada && !usuario.isEmailVerificado()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Confirme seu e-mail atual antes de solicitar uma alteração.");
+        }
+
+        if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Aguarde alguns instantes antes de solicitar uma nova confirmação de e-mail.");
+        }
+
+        validarLimiteAlteracaoEmail(idUsuario);
+
+        usuario.setEmailPendente(emailNormalizado);
         usuarioRepository.save(usuario);
+
+        String token = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, emailNormalizado, ip);
+        emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), emailNormalizado, token);
+
         return ContaResponse.from(usuario, temLoginGoogle);
     }
 
     @Transactional
     public MensagemResponse atualizarSenha(Integer idUsuario, AtualizarSenhaRequest request) {
         Usuario usuario = buscarUsuario(idUsuario);
+
+        boolean confirmacaoHabilitada = setupService.obter().isConfirmacaoEmailHabilitada();
+        if (confirmacaoHabilitada && !usuario.isEmailVerificado()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Confirme seu e-mail antes de alterar a senha.");
+        }
+
         politicaSenhaService.validar(request.novaSenha());
 
         if (usuario.possuiSenhaLocal()) {
@@ -115,6 +154,43 @@ public class ContaService {
         }
 
         usuarioRepository.delete(usuario);
+    }
+
+    private void validarLimiteAlteracaoEmail(Integer idUsuario) {
+        LocalDateTime agora = LocalDateTime.now();
+
+        ControleAlteracaoEmail controle = controleAlteracaoEmailRepository.findByIdUsuario(idUsuario)
+                .orElseGet(() -> ControleAlteracaoEmail.builder()
+                        .idUsuario(idUsuario)
+                        .janelaInicio(agora)
+                        .quantidade(0)
+                        .build());
+
+        if (controle.getBloqueadoAte() != null && agora.isBefore(controle.getBloqueadoAte())) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Muitas solicitações de alteração de e-mail. Tente novamente mais tarde.");
+        }
+
+        if (controle.getJanelaInicio() == null
+                || agora.isAfter(controle.getJanelaInicio().plusMinutes(JANELA_ALTERACAO_EMAIL_MINUTES))) {
+            controle.setJanelaInicio(agora);
+            controle.setQuantidade(1);
+            controle.setBloqueadoAte(null);
+            controleAlteracaoEmailRepository.save(controle);
+            return;
+        }
+
+        int novaQuantidade = controle.getQuantidade() + 1;
+        controle.setQuantidade(novaQuantidade);
+
+        if (novaQuantidade > LIMITE_ALTERACAO_EMAIL) {
+            controle.setBloqueadoAte(agora.plusMinutes(BLOQUEIO_ALTERACAO_EMAIL_MINUTES));
+            controleAlteracaoEmailRepository.save(controle);
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Muitas solicitações de alteração de e-mail. Tente novamente mais tarde.");
+        }
+
+        controleAlteracaoEmailRepository.save(controle);
     }
 
     private Usuario buscarUsuario(Integer idUsuario) {

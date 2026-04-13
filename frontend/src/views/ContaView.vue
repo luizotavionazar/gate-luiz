@@ -13,6 +13,21 @@
       <div v-else-if="erro" class="alert alert-danger">{{ erro }}</div>
 
       <template v-else-if="conta">
+        <div v-if="!conta.emailVerificado" class="alert alert-warning d-flex flex-column flex-sm-row align-items-sm-center gap-2 mb-4">
+          <div class="flex-grow-1">
+            <strong>E-mail não verificado.</strong> Verifique sua caixa de entrada e clique no link de ativação enviado para <strong>{{ conta.email }}</strong>.
+            A alteração de senha fica bloqueada até a verificação.
+          </div>
+          <button class="btn btn-sm btn-warning flex-shrink-0" :disabled="reenviando" @click="reenviarVerificacaoEmail">
+            {{ reenviando ? 'Enviando...' : 'Reenviar e-mail' }}
+          </button>
+        </div>
+
+        <div v-if="conta.emailPendente" class="alert alert-info mb-4">
+          <strong>Alteração de e-mail pendente.</strong>
+          Um e-mail de confirmação foi enviado para <strong>{{ conta.emailPendente }}</strong>.
+          Clique no link recebido para concluir a alteração.
+        </div>
         <div class="card shadow border-0 rounded-4 mb-4">
           <div class="card-body p-4">
             <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
@@ -250,7 +265,8 @@ import {
   buscarMinhaConta,
   deletarMinhaConta,
   logout,
-  marcarSenhaLocalNaSessao
+  marcarSenhaLocalNaSessao,
+  reenviarVerificacao
 } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 
@@ -273,6 +289,8 @@ const mensagemSenha = ref('')
 const erroNome = ref('')
 const erroEmail = ref('')
 const erroSenha = ref('')
+
+const reenviando = ref(false)
 
 const modalExclusaoVisivel = ref(false)
 const senhaExclusao = ref('')
@@ -364,12 +382,28 @@ async function salvarEmail() {
   try {
     conta.value = await atualizarMeuEmail({ email: formEmail.email.trim() })
     atualizarSessaoComConta(conta.value)
-    mensagemEmail.value = 'E-mail atualizado com sucesso.'
+    if (conta.value.emailPendente) {
+      mensagemEmail.value = `Confirmação enviada para ${conta.value.emailPendente}. Clique no link recebido por e-mail para concluir a alteração.`
+    } else {
+      mensagemEmail.value = 'E-mail atualizado com sucesso.'
+    }
   } catch (e) {
     erroEmail.value = extrairMensagemErro(e, 'Não foi possível atualizar o e-mail.')
     console.error(e)
   } finally {
     salvandoEmail.value = false
+  }
+}
+
+async function reenviarVerificacaoEmail() {
+  reenviando.value = true
+  try {
+    await reenviarVerificacao()
+    await carregarConta()
+  } catch (e) {
+    erro.value = extrairMensagemErro(e, 'Não foi possível reenviar o e-mail de verificação.')
+  } finally {
+    reenviando.value = false
   }
 }
 

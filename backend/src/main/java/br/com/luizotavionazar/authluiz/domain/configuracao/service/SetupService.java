@@ -56,7 +56,8 @@ public class SetupService {
                 config.getFrontendBaseUrl(),
                 config.isSmtpAuth(),
                 config.isSmtpStarttls(),
-                config.isSetupConcluido()
+                config.isSetupConcluido(),
+                config.isConfirmacaoEmailHabilitada()
         );
     }
 
@@ -82,6 +83,7 @@ public class SetupService {
         config.setFrontendBaseUrl(request.frontendBaseUrl().trim());
         config.setSmtpAuth(request.smtpAuth());
         config.setSmtpStarttls(request.smtpStarttls());
+        config.setConfirmacaoEmailHabilitada(request.confirmacaoEmailHabilitada());
         config.setSetupConcluido(true);
 
         repository.save(config);

@@ -73,6 +73,7 @@ docker compose up --build
 - **Recuperação de senha:** Limitada por IP via `ControleRecuperacaoSenha`. Os tokens são hasheados antes de serem armazenados (`TokenRecuperacaoSenha`). A limpeza de tokens expirados é feita pelo `TokenRecuperacaoSenhaExpiracaoService`.
 - **Google OAuth:** O frontend obtém um Google ID token via Google Identity Services SDK; o backend valida (`GoogleIdTokenValidatorService`/`GoogleAudienceValidator`) e emite seu próprio JWT. Uma identidade Google pode ser vinculada a uma conta existente de e-mail/senha.
 - **Configuração de e-mail:** As credenciais SMTP ficam criptografadas na tabela `configuracaoAplicacao` via `CriptografiaConfiguracaoService` (BouncyCastle). O `EmailService` as lê em tempo de execução.
+- **Confirmação de e-mail (feature flag):** Controlada por `configuracaoAplicacao.confirmacaoEmailHabilitada`. Quando ativa: cadastro gera token de verificação (7 dias), usuário não confirmado não pode alterar senha, contas expiradas são removidas a cada hora pelo `ConfirmacaoEmailExpiracaoService` (`@Scheduled`). A **alteração de e-mail sempre exige confirmação**, independente da flag — usa `emailPendente` + token (30 min); o e-mail só é trocado após o clique no link. Rate limiting de alteração de e-mail por usuário via `ControleAlteracaoEmail` (máx. 5 por 1440 min, bloqueio de 1440 min). Cooldown de reenvio: 2 minutos (mesmo mecanismo do `TokenConfirmacaoService`). Tokens são hasheados via `TokenUtils.gerarHash()` antes de armazenar. `@EnableScheduling` está ativo na `AuthLuizApplication`.
 
 **Migrações de banco:** Flyway (`db/migration/V*.sql`). O schema usa identificadores camelCase entre aspas (Hibernate `PhysicalNamingStrategyStandardImpl` + `globally_quoted_identifiers=true`). O DDL está como `validate` — sempre crie um novo arquivo de migração para alterações no schema.
 
@@ -83,7 +84,7 @@ docker compose up --build
 - `services/api.js` — Instância Axios com injeção do token Bearer e logout automático em respostas 401.
 - `services/autenticacaoService.js` — Utilitários de armazenamento e verificação de expiração do token.
 - `router/index.js` — Guards: redireciona para `/setup` se o setup não estiver concluído; exige autenticação nas rotas com `requiresAuth`; redireciona usuários autenticados para longe do login/cadastro.
-- `views/` — Um Vue SFC por página (`Login`, `Cadastro`, `Conta`, `RecuperarSenha`, `RedefinirSenha`, `Setup`, `VincularContaGoogle`).
+- `views/` — Um Vue SFC por página (`Login`, `Cadastro`, `Conta`, `RecuperarSenha`, `RedefinirSenha`, `Setup`, `VincularContaGoogle`, `VerificacaoEmail`).
 - Interface usa Bootstrap 5 + Bootstrap Icons.
 
 ### Resumo dos Endpoints da API
@@ -100,9 +101,11 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | POST | `/auth/recuperacao/redefinir` | Pública | Redefine senha com token válido |
 | GET | `/auth/me` | JWT | Retorna dados da conta autenticada |
 | PATCH | `/auth/me/nome` | JWT | Atualiza nome do usuário |
-| PATCH | `/auth/me/email` | JWT | Atualiza e-mail (bloqueado para contas com Google vinculado) |
-| PATCH | `/auth/me/senha` | JWT | Atualiza ou define senha local |
-| DELETE | `/auth/me` | JWT | Exclui a conta do usuário autenticado |
+| PATCH | `/auth/me/email` | JWT | Atualiza e-mail (bloqueado para contas com Google vinculado; sempre envia e-mail de confirmação para o novo endereço e salva em `emailPendente`) |
+| PATCH | `/auth/me/senha` | JWT | Atualiza ou define senha local (bloqueado se e-mail não verificado e confirmação habilitada) |
+| DELETE | `/auth/me` | JWT | Exclui a conta do usuário autenticado (sempre permitido, independente do status de verificação) |
+| GET | `/auth/verificacao/confirmar` | Pública | Confirma e-mail via token (cadastro ou alteração de e-mail) |
+| POST | `/auth/verificacao/reenviar` | JWT | Reenvia e-mail de verificação de cadastro (cooldown de 2 min) |
 | GET/POST | `/setup/**` | Chave mestra | Configuração inicial da aplicação |
 
 ## Variáveis de Ambiente
@@ -125,7 +128,7 @@ O frontend incluído neste repositório é uma **implementação de referência*
 
 ## Integridade Referencial com Usuário
 
-As tabelas `tokenRecuperacaoSenha` e `identidadeExterna` possuem `ON DELETE CASCADE` na FK para `usuario`. Se no futuro forem criadas novas tabelas com FK para `usuario`, garantir que também tenham `ON DELETE CASCADE` para que a deleção do usuário continue funcionando sem erros de integridade referencial.
+As tabelas `tokenRecuperacaoSenha`, `identidadeExterna`, `tokenConfirmacao` e `controleAlteracaoEmail` possuem `ON DELETE CASCADE` na FK para `usuario`. Se no futuro forem criadas novas tabelas com FK para `usuario`, garantir que também tenham `ON DELETE CASCADE` para que a deleção do usuário continue funcionando sem erros de integridade referencial.
 
 ## Centralização de Mensagens e Validações
 

@@ -47,6 +47,18 @@
                 <label class="form-check-label" for="smtpStarttls">Usar STARTTLS</label>
               </div>
             </div>
+            <div class="col-12 mb-3">
+              <div class="form-check">
+                <input v-model="form.confirmacaoEmailHabilitada" class="form-check-input" type="checkbox" id="confirmacaoEmailHabilitada" />
+                <label class="form-check-label" for="confirmacaoEmailHabilitada">
+                  Exigir confirmação de e-mail no cadastro e na alteração de e-mail
+                </label>
+              </div>
+              <div class="form-text">
+                Quando habilitado, novos usuários precisarão confirmar o e-mail antes de acessar recursos da conta.
+                Contas não confirmadas são removidas automaticamente após 7 dias.
+              </div>
+            </div>
           </div>
 
           <div v-if="erro" class="alert alert-danger">{{ erro }}</div>
@@ -82,7 +94,8 @@ const form = reactive({
   mailFrom: '',
   frontendBaseUrl: 'http://localhost:5173',
   smtpAuth: true,
-  smtpStarttls: true
+  smtpStarttls: true,
+  confirmacaoEmailHabilitada: false
 })
 
 async function carregar() {

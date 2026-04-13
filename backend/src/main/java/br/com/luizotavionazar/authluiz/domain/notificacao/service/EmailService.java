@@ -40,6 +40,60 @@ public class EmailService {
         criarMailSender(config).send(mensagem);
     }
 
+    public void enviarVerificacaoCadastro(String nome, String email, String token) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        SimpleMailMessage mensagem = new SimpleMailMessage();
+        mensagem.setFrom(config.getMailFrom());
+        mensagem.setTo(email);
+        mensagem.setSubject("Verifique seu e-mail - AuthLuiz");
+
+        String link = config.getFrontendBaseUrl() + "/verificar-email?token=" + token;
+
+        String corpo = """
+                Olá, %s! Bem-vindo ao AuthLuiz!
+
+                Sua conta foi criada com sucesso, mas ainda precisa de uma etapa final: a verificação do seu e-mail.
+
+                Clique no link abaixo para ativar sua conta:
+                %s
+
+                Este link é válido por 7 dias. Caso você não confirme dentro deste prazo, sua conta será removida automaticamente e você precisará se cadastrar novamente.
+
+                Se você não criou uma conta no AuthLuiz, ignore este e-mail.
+                """.formatted(nome, link);
+
+        mensagem.setText(corpo);
+        criarMailSender(config).send(mensagem);
+    }
+
+    public void enviarConfirmacaoAlteracaoEmail(String nome, String novoEmail, String token) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        SimpleMailMessage mensagem = new SimpleMailMessage();
+        mensagem.setFrom(config.getMailFrom());
+        mensagem.setTo(novoEmail);
+        mensagem.setSubject("Confirme seu novo e-mail - AuthLuiz");
+
+        String link = config.getFrontendBaseUrl() + "/verificar-email?token=" + token;
+
+        String corpo = """
+                Olá, %s!
+
+                Recebemos uma solicitação para alterar o e-mail da sua conta no AuthLuiz para este endereço.
+
+                Clique no link abaixo para confirmar a alteração:
+                %s
+
+                Este link expira em 30 minutos e pode ser usado apenas uma vez.
+
+                Se você não solicitou essa alteração, ignore este e-mail. Seu e-mail atual permanecerá inalterado.
+                """.formatted(nome, link);
+
+        mensagem.setText(corpo);
+        criarMailSender(config).send(mensagem);
+    }
+
     public void enviarRecuperacaoSenha(String nome, String email, String token) {
         ConfiguracaoAplicacao config = validarSetupEmail();
 

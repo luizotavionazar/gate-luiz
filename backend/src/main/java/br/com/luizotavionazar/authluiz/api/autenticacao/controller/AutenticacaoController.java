@@ -23,8 +23,11 @@ public class AutenticacaoController {
     private final AutenticacaoService autenticacaoService;
 
     @PostMapping("/cadastro")
-    public ResponseEntity<CadastroResponse> cadastrar(@Valid @RequestBody CadastroRequest request) {
-        CadastroResponse response = autenticacaoService.cadastrar(request);
+    public ResponseEntity<CadastroResponse> cadastrar(
+            @Valid @RequestBody CadastroRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        CadastroResponse response = autenticacaoService.cadastrar(request, extrairIp(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

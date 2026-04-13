@@ -25,6 +25,7 @@ public record SalvarSetupRequest(
         String frontendBaseUrl,
 
         boolean smtpAuth,
-        boolean smtpStarttls
+        boolean smtpStarttls,
+        boolean confirmacaoEmailHabilitada
 ) {
 }

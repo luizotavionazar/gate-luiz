@@ -10,6 +10,8 @@ public record ContaResponse(
         String email,
         Boolean temSenhaLocal,
         Boolean temLoginGoogle,
+        Boolean emailVerificado,
+        String emailPendente,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualiza
 ) {
@@ -20,6 +22,8 @@ public record ContaResponse(
                 usuario.getEmail(),
                 usuario.possuiSenhaLocal(),
                 temLoginGoogle,
+                usuario.isEmailVerificado(),
+                usuario.getEmailPendente(),
                 usuario.getDataCriacao(),
                 usuario.getDataAtualiza()
         );

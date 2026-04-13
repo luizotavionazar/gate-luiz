@@ -6,6 +6,7 @@ import RecuperarSenhaView from '../views/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/RedefinirSenhaView.vue'
 import SetupView from '../views/SetupView.vue'
 import VincularContaGoogleView from '../views/VincularContaGoogleView.vue'
+import VerificacaoEmailView from '../views/VerificacaoEmailView.vue'
 import { getToken, isTokenExpired, logout } from '../services/autenticacaoService'
 import { obterStatusSetup } from '../services/setupService'
 
@@ -17,6 +18,7 @@ const routes = [
   { path: '/conta', name: 'conta', component: ContaView, meta: { requiresAuth: true } },
   { path: '/recuperar-senha', name: 'recuperar-senha', component: RecuperarSenhaView },
   { path: '/redefinir-senha', name: 'redefinir-senha', component: RedefinirSenhaView },
+  { path: '/verificar-email', name: 'verificar-email', component: VerificacaoEmailView },
   { path: '/setup', name: 'setup', component: SetupView }
 ]
 

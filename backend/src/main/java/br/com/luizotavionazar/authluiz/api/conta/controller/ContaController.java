@@ -7,6 +7,7 @@ import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
 import br.com.luizotavionazar.authluiz.domain.usuario.service.ContaService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -44,10 +45,11 @@ public class ContaController {
     @PatchMapping("/email")
     public ResponseEntity<ContaResponse> atualizarEmail(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody AtualizarEmailRequest request
+            @Valid @RequestBody AtualizarEmailRequest request,
+            HttpServletRequest httpRequest
     ) {
         Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(contaService.atualizarEmail(idUsuario, request));
+        return ResponseEntity.ok(contaService.atualizarEmail(idUsuario, request, httpRequest.getRemoteAddr()));
     }
 
     @PatchMapping("/senha")

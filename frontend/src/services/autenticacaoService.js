@@ -166,6 +166,22 @@ export async function deletarMinhaConta(dados) {
   return response.data
 }
 
+export async function confirmarEmail(token) {
+  const response = await authApi.get('/auth/verificacao/confirmar', {
+    params: { token }
+  })
+  return response.data
+}
+
+export async function reenviarVerificacao() {
+  const response = await authApi.post('/auth/verificacao/reenviar', {}, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`
+    }
+  })
+  return response.data
+}
+
 export async function iniciarRecuperacaoSenha(dados) {
   const response = await authApi.post('/auth/recuperacao/iniciar', dados)
   return response.data

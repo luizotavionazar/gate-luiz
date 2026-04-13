@@ -45,6 +45,13 @@ public class Usuario implements UserDetails {
     @Column(name = "dataAtualiza")
     private LocalDateTime dataAtualiza;
 
+    @Builder.Default
+    @Column(name = "emailVerificado", nullable = false)
+    private boolean emailVerificado = true;
+
+    @Column(name = "emailPendente", length = 255)
+    private String emailPendente;
+
     public boolean possuiSenhaLocal() {
         return senhaHash != null && !senhaHash.isBlank();
     }

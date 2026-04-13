@@ -46,6 +46,9 @@ public class ConfiguracaoAplicacao {
     @Column(name = "frontendBaseUrl")
     private String frontendBaseUrl;
 
+    @Column(name = "confirmacaoEmailHabilitada", nullable = false)
+    private boolean confirmacaoEmailHabilitada;
+
     @Column(name = "dataCriacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;
 

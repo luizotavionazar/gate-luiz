@@ -8,6 +8,8 @@ import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenRecuperac
 import br.com.luizotavionazar.authluiz.domain.autenticacao.event.UsuarioCadastradoEvent;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.ControleRecuperacaoSenhaRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenRecuperacaoSenhaRepository;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.util.TokenUtils;
+import br.com.luizotavionazar.authluiz.domain.configuracao.service.SetupService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
@@ -22,13 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.HexFormat;
 
 @Service
 @RequiredArgsConstructor
@@ -45,9 +42,11 @@ public class AutenticacaoService {
     private final PoliticaSenhaService politicaSenhaService;
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final TokenRecuperacaoSenhaExpiracaoService tokenRecuperacaoSenhaExpiracaoService;
+    private final SetupService setupService;
+    private final TokenConfirmacaoService tokenConfirmacaoService;
 
     private static final long COOLDOWN_TOKEN_MINUTES = 2;
-    private static final long EXPIRACAO_TOKEN_MINUTES = 1;
+    private static final long EXPIRACAO_TOKEN_MINUTES = 30;
     private static final long JANELA_IP_MINUTES = 10;
     private static final int LIMITE_TENTATIVAS_IP = 5;
     private static final long BLOQUEIO_IP_MINUTES = 2;
@@ -55,7 +54,7 @@ public class AutenticacaoService {
     static final String MSG_CREDENCIAIS_INVALIDAS = "E-mail ou senha incorretos!";
 
     @Transactional
-    public CadastroResponse cadastrar(CadastroRequest request) {
+    public CadastroResponse cadastrar(CadastroRequest request, String ip) {
         String emailNormalizado = request.emailNormalizado();
 
         if (usuarioRepository.existsByEmail(emailNormalizado)) {
@@ -66,7 +65,16 @@ public class AutenticacaoService {
 
         Usuario usuario = usuarioService.cadastrar(request.nomeNormalizado(), emailNormalizado, request.senha());
 
-        eventPublisher.publishEvent(new UsuarioCadastradoEvent(usuario.getId(), usuario.getNome(), usuario.getEmail()));
+        boolean confirmacaoHabilitada = setupService.obter().isConfirmacaoEmailHabilitada();
+        String tokenVerificacao = null;
+
+        if (confirmacaoHabilitada) {
+            usuario.setEmailVerificado(false);
+            usuarioRepository.save(usuario);
+            tokenVerificacao = tokenConfirmacaoService.criarTokenVerificacaoCadastro(usuario, ip);
+        }
+
+        eventPublisher.publishEvent(new UsuarioCadastradoEvent(usuario.getId(), usuario.getNome(), usuario.getEmail(), tokenVerificacao));
 
         return CadastroResponse.from(usuario);
     }
@@ -98,6 +106,12 @@ public class AutenticacaoService {
         String emailNormalizado = request.emailNormalizado();
 
         usuarioRepository.findByEmail(emailNormalizado).ifPresent(usuario -> {
+            boolean contaGoogleOnly = !usuario.possuiSenhaLocal()
+                    && identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(), ProviderExterno.GOOGLE);
+            if (contaGoogleOnly) {
+                return;
+            }
+
             LocalDateTime agora = LocalDateTime.now();
 
             tokenRecuperacaoSenhaRepository
@@ -125,8 +139,8 @@ public class AutenticacaoService {
                 return;
             }
 
-            String tokenBruto = gerarTokenSeguro();
-            String tokenHash = gerarHash(tokenBruto);
+            String tokenBruto = TokenUtils.gerarTokenSeguro();
+            String tokenHash = TokenUtils.gerarHash(tokenBruto);
 
             TokenRecuperacaoSenha token = TokenRecuperacaoSenha.builder()
                     .usuario(usuario)
@@ -144,7 +158,7 @@ public class AutenticacaoService {
 
     @Transactional
     public MensagemResponse redefinirSenha(RedefinirSenhaRequest request) {
-        String tokenHash = gerarHash(request.token());
+        String tokenHash = TokenUtils.gerarHash(request.token());
 
         TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!"));
@@ -178,7 +192,7 @@ public class AutenticacaoService {
 
     @Transactional
     public MensagemResponse validarTokenRecuperacao(String tokenBruto) {
-        String tokenHash = gerarHash(tokenBruto);
+        String tokenHash = TokenUtils.gerarHash(tokenBruto);
 
         TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!"));
@@ -193,22 +207,6 @@ public class AutenticacaoService {
         }
 
         return new MensagemResponse("Token válido!");
-    }
-
-    private String gerarTokenSeguro() {
-        byte[] bytes = new byte[32];
-        new SecureRandom().nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-
-    private String gerarHash(String valor) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(valor.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Erro ao gerar hash do token!", ex);
-        }
     }
 
     private MensagemResponse mensagemGenericaRecuperacao() {
