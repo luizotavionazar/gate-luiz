@@ -140,9 +140,16 @@ Mensagens de erro, textos de validação e lógicas de verificação repetidas d
 
 O usuário utiliza o **API Dog** para testar o backend. Quando solicitado, forneça roteiros de teste detalhados com método, URL, headers, body e resultado esperado para cada cenário (sucesso e erro).
 
-## Manutenção do CLAUDE.md
+## Manutenção de Documentação
 
-Durante o desenvolvimento, manter este arquivo sempre atualizado com qualquer informação relevante para o entendimento futuro do projeto: novos endpoints, mudanças de arquitetura, regras de negócio, convenções adotadas, decisões técnicas e restrições. O objetivo é que este arquivo seja sempre uma fonte confiável de contexto.
+Durante o desenvolvimento, manter os seguintes arquivos sempre atualizados:
+
+- **`CLAUDE.md`** — qualquer informação relevante para o entendimento futuro do projeto: novos endpoints, mudanças de arquitetura, regras de negócio, convenções adotadas, decisões técnicas e restrições. O objetivo é que este arquivo seja sempre uma fonte confiável de contexto.
+- **`README.md`** (raiz) — visão geral do projeto, stack, início rápido e variáveis de ambiente.
+- **`backend/README.md`** — estrutura de pacotes, migrações de banco, endpoints e instruções de execução do backend.
+- **`frontend/README.md`** — estrutura de pastas, fluxos implementados, comandos e variáveis de ambiente do frontend.
+
+Sempre que uma alteração relevante for realizada (novo endpoint, nova view, nova migração, mudança de fluxo, adição de dependência), atualizar todos os arquivos acima que forem afetados.
 
 ## Fluxo de Trabalho com Claude
 
