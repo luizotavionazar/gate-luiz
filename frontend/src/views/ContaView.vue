@@ -16,7 +16,7 @@
         <div v-if="!conta.emailVerificado" class="alert alert-warning mb-4">
           <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
             <div class="flex-grow-1">
-              <strong>E-mail não verificado!</strong>
+              <strong>E-mail não verificado!</strong><br>
               Verifique sua caixa de entrada em <strong>{{ conta.email }}</strong> e clique no link de ativação enviado.
             </div>
             <button class="btn btn-sm btn-warning flex-shrink-0" :disabled="reenviando" @click="reenviarVerificacaoEmail">
