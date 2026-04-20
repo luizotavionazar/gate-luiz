@@ -151,6 +151,22 @@ Auth-Luiz é parte de um ecossistema de APIs reutilizáveis independentes:
 
 O PermissoesLuiz usa `GET /auth/.well-known/jwks.json` para obter a chave pública e verificar tokens de forma autônoma — sem compartilhar segredos.
 
+## CORS
+
+O backend aceita requisições das seguintes origens:
+- `http://localhost` e `http://localhost:80` — frontend do AuthLuiz via Docker (porta 80)
+- `http://localhost:81` — frontend do PermissoesLuiz via Docker (porta 81)
+- `http://localhost:5173` — frontend do AuthLuiz em modo dev
+- `http://localhost:5174` — frontend do PermissoesLuiz em modo dev
+
+## Formato das Chaves RSA
+
+`JWT_RSA_PRIVATE_KEY` e `JWT_RSA_PUBLIC_KEY` devem ser o **arquivo PEM completo codificado em base64** (incluindo os headers `-----BEGIN PRIVATE KEY-----` / `-----BEGIN PUBLIC KEY-----`). Use o utilitário `GerarChavesRSA.java` na raiz do `gate-luiz` para gerar os valores corretos. Base64 de DER puro não funciona.
+
+## Verificação de Bootstrap
+
+O endpoint `GET /setup/status` retorna `bootstrapOk: true` quando `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `JWT_RSA_PRIVATE_KEY` e `APP_SETUP_MASTER_KEY` estão todos preenchidos no `.env`.
+
 ## Integridade Referencial com Usuário
 
 As tabelas `tokenRecuperacaoSenha`, `identidadeExterna`, `tokenConfirmacao` e `controleAlteracaoEmail` possuem `ON DELETE CASCADE` na FK para `usuario`. Se no futuro forem criadas novas tabelas com FK para `usuario`, garantir que também tenham `ON DELETE CASCADE` para que a deleção do usuário continue funcionando sem erros de integridade referencial.

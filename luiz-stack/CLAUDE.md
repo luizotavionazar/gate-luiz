@@ -30,18 +30,18 @@ luiz-stack/
 ## Pré-requisitos
 
 - Docker com Docker Compose
-- Repositórios clonados como irmãos deste diretório:
+- Os três diretórios devem ser irmãos dentro de `gate-luiz/`:
   ```
-  c:\auth-luiz\         ← github.com/luizotavionazar/auth-luiz
-  c:\permissoes-luiz\   ← github.com/luizotavionazar/permissoes-luiz
-  c:\luiz-stack\        ← github.com/luizotavionazar/luiz-stack (este repo)
+  c:\gate-luiz\auth-luiz\
+  c:\gate-luiz\permissoes-luiz\
+  c:\gate-luiz\luiz-stack\
   ```
 
 ## Configuração
 
-```bash
-cp .env.example .env
-# Edite .env com todas as credenciais dos dois serviços
+```powershell
+Copy-Item luiz-stack\.env.example luiz-stack\.env
+# Edite luiz-stack\.env com todas as credenciais
 ```
 
 ### Variáveis de Ambiente
@@ -52,8 +52,8 @@ Consulte `.env.example`. Variáveis obrigatórias:
 - `AUTHLUIZ_DB_USER` / `AUTHLUIZ_DB_PASSWORD` — credenciais do banco do AuthLuiz
 - `AUTHLUIZ_SETUP_MASTER_KEY` — chave mestra do setup do AuthLuiz
 - `GOOGLE_OAUTH_CLIENT_ID` — client ID do Google OAuth
-- `JWT_RSA_PRIVATE_KEY` — chave privada RSA em base64 (PKCS#8)
-- `JWT_RSA_PUBLIC_KEY` — chave pública RSA em base64 (X.509)
+- `JWT_RSA_PRIVATE_KEY` — chave privada RSA em base64 (**formato PEM completo em base64**, não DER)
+- `JWT_RSA_PUBLIC_KEY` — chave pública RSA em base64 (**formato PEM completo em base64**, não DER)
 - `JWT_EXPIRATION_MINUTES` — expiração dos JWTs (padrão: 120)
 
 **PermissoesLuiz:**
@@ -62,7 +62,18 @@ Consulte `.env.example`. Variáveis obrigatórias:
 
 > `AUTH_LUIZ_JWKS_URI` é injetada diretamente pelo `compose.yaml` com o hostname interno do Docker — não precisa estar no `.env`.
 
-> As chaves RSA são geradas pelo utilitário `GerarChavesRSA.java` no repositório do AuthLuiz. Gere uma vez e use nos dois serviços — o AuthLuiz assina com a chave privada e o PermissoesLuiz valida com a chave pública.
+### Geração das Chaves RSA
+
+Use o utilitário `GerarChavesRSA.java` na raiz do repositório `gate-luiz`:
+
+```powershell
+cd c:\gate-luiz
+java GerarChavesRSA.java
+```
+
+Cole os valores gerados em `luiz-stack/.env` **e também** em `auth-luiz/backend/.env` (para execução standalone).
+
+> **Importante:** o formato correto é o arquivo PEM completo (com `-----BEGIN PRIVATE KEY-----`) codificado em base64. O utilitário já gera nesse formato. Não use base64 de DER puro.
 
 ## Uso
 

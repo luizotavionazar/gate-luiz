@@ -25,8 +25,8 @@ public class SetupService {
     @Value("${spring.datasource.username:}")
     private String datasourceUsername;
 
-    @Value("${jwt.secret:}")
-    private String jwtSecret;
+    @Value("${jwt.rsa.private-key:}")
+    private String jwtRsaPrivateKey;
 
     @Value("${app.setup.master-key:}")
     private String masterKey;
@@ -38,7 +38,7 @@ public class SetupService {
         boolean bootstrapOk =
                 !isBlank(datasourceUrl) &&
                 !isBlank(datasourceUsername) &&
-                !isBlank(jwtSecret) &&
+                !isBlank(jwtRsaPrivateKey) &&
                 !isBlank(masterKey);
 
         return new StatusSetupResponse(bootstrapOk, config.isSetupConcluido());

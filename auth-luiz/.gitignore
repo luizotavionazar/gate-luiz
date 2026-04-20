@@ -5,3 +5,8 @@ resetabanco.bat
 *.zip
 *.rar
 .DS_Store
+
+### Outros arquivos a ignorar
+.env
+.env.*
+!.env.example

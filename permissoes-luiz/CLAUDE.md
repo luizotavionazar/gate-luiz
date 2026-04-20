@@ -123,6 +123,12 @@ Consulte `backend/.env.example`. Variáveis obrigatórias:
 
 O frontend incluído neste repositório é uma **implementação de referência** — serve para demonstrar o uso da API, mas o backend foi projetado para ser reutilizável com qualquer frontend.
 
+## CORS
+
+O backend aceita requisições das seguintes origens:
+- `http://localhost:81` — frontend do PermissoesLuiz via Docker (porta 81)
+- `http://localhost:5174` — frontend do PermissoesLuiz em modo dev
+
 ## Padrões de Mensagens
 
 Todas as mensagens de resposta da API devem terminar com `!`. Isso é um padrão do projeto — verificar sempre antes de retornar strings de erro ou sucesso nos services e controllers.
