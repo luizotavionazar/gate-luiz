@@ -21,6 +21,11 @@ public class MeController {
     private final UsuarioRoleRepository usuarioRoleRepository;
     private final AdminVerificador adminVerificador;
 
+    @GetMapping("/admin")
+    Map<String, Object> isAdmin(@AuthenticationPrincipal Jwt jwt) {
+        return Map.of("isAdmin", adminVerificador.isAdmin(jwt));
+    }
+
     @GetMapping("/roles")
     Map<String, Object> meusRoles(@AuthenticationPrincipal Jwt jwt) {
         Long idUsuario = adminVerificador.extrairIdUsuario(jwt);

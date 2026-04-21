@@ -6,7 +6,7 @@ API de controle de acesso (roles e permissões) construída com Spring Boot e ac
 
 ### Funcionalidades
 
-- Setup inicial guiado para definição do admin mestre
+- Promoção automática do primeiro usuário autenticado a admin mestre
 - CRUD de roles (agrupamentos de permissões)
 - CRUD de permissões (recurso + ação, ex: `artigos:criar`)
 - Atribuição e remoção de roles por usuário
@@ -45,7 +45,7 @@ O **backend** valida JWTs do AuthLuiz automaticamente via endpoint JWKS (sem seg
 
 ```bash
 cp backend/.env.example backend/.env
-# Edite backend/.env com as credenciais do banco, master key e URI do JWKS
+# Edite backend/.env com as credenciais do banco e URI do JWKS
 ```
 
 ### 2. Subir banco de dados de desenvolvimento
@@ -71,9 +71,9 @@ npm run dev
 # O frontend sobe em http://localhost:5174
 ```
 
-### 5. Setup inicial
+### 5. Primeiro acesso
 
-Acesse `http://localhost:5174/setup` e informe o ID do usuário que será admin mestre (deve ser um usuário já cadastrado no AuthLuiz).
+Cadastre-se no AuthLuiz. Na tela de conta, clique em **Painel de Permissões** — o JWT é passado automaticamente ao PermLuiz via URL fragment. O primeiro usuário autenticado a acessar qualquer página `/admin/**` é promovido automaticamente a admin mestre.
 
 ### Stack completa (produção)
 
@@ -85,7 +85,6 @@ Use o repositório **luiz-stack** (`github.com/luizotavionazar/luiz-stack`) para
 
 | Variável                    | Descrição                                          |
 |-----------------------------|----------------------------------------------------|
-| `APP_SETUP_MASTER_KEY`      | Chave para concluir o setup inicial                |
 | `SPRING_DATASOURCE_URL`     | URL JDBC do PostgreSQL                             |
 | `SPRING_DATASOURCE_USERNAME`| Usuário do banco                                   |
 | `SPRING_DATASOURCE_PASSWORD`| Senha do banco                                     |
@@ -93,10 +92,10 @@ Use o repositório **luiz-stack** (`github.com/luizotavionazar/luiz-stack`) para
 
 ### Frontend (`frontend/.env`)
 
-| Variável                    | Descrição                                          |
-|-----------------------------|----------------------------------------------------|
-| `VITE_API_BASE_URL`         | URL da API (padrão: `http://localhost:8081`)       |
-| `VITE_AUTH_API_BASE_URL`    | URL do AuthLuiz para login (padrão: `http://localhost:8080`) |
+| Variável                | Descrição                                          |
+|-------------------------|----------------------------------------------------|
+| `VITE_PERM_API_URL`     | URL da API (padrão: `http://localhost:8081`)       |
+| `VITE_AUTH_LUIZ_URL`    | URL do AuthLuiz (padrão: `http://localhost:8080`)  |
 
 ## Ecossistema
 

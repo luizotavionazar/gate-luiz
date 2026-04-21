@@ -33,3 +33,14 @@ export function logout() {
   localStorage.removeItem(USER_KEY)
   localStorage.removeItem(EXPIRES_AT_KEY)
 }
+
+export function salvarSessaoDoFragment(jwt) {
+  const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+  localStorage.setItem(TOKEN_KEY, jwt)
+  localStorage.setItem(USER_KEY, JSON.stringify({
+    idUsuario: Number(payload.sub),
+    nome: payload.name,
+    email: payload.email
+  }))
+  localStorage.setItem(EXPIRES_AT_KEY, String(payload.exp * 1000))
+}

@@ -17,7 +17,10 @@ api.interceptors.response.use(
   (error) => {
     if (error?.response?.status === 401 && getToken()) {
       logout()
-      window.location.href = '/login'
+      window.location.href = AUTH_LUIZ_URL
+    }
+    if (error?.response?.status === 403) {
+      window.location.href = '/sem-acesso'
     }
     return Promise.reject(error)
   }

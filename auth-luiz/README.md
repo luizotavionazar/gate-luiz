@@ -112,6 +112,7 @@ docker compose up --build
 | Variável                | Descrição                              |
 |-------------------------|----------------------------------------|
 | `VITE_API_BASE_URL`     | URL da API (padrão: `http://localhost:8080`) |
+| `VITE_PERM_LUIZ_URL`    | URL do PermLuiz (padrão: `http://localhost:81`) — usado para verificar admin e abrir o painel |
 | `VITE_GOOGLE_CLIENT_ID` | Client ID do Google OAuth              |
 
 ## Ecossistema

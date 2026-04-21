@@ -7,10 +7,3 @@ export async function obterStatusSetup() {
   const response = await setupApi.get('/setup')
   return response.data
 }
-
-export async function concluirSetup(masterKey, idUsuario) {
-  const response = await setupApi.post('/setup', { idUsuario }, {
-    headers: { 'X-Master-Key': masterKey }
-  })
-  return response.data
-}

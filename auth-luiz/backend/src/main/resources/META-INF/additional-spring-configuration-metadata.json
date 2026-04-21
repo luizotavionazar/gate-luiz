@@ -1,0 +1,30 @@
+{
+  "properties": [
+    {
+      "name": "jwt.rsa.private-key",
+      "type": "java.lang.String",
+      "description": "Chave privada RSA (arquivo PEM completo em base64) usada para assinar JWTs com RS256."
+    },
+    {
+      "name": "jwt.rsa.public-key",
+      "type": "java.lang.String",
+      "description": "Chave pública RSA (arquivo PEM completo em base64) exposta via JWKS e usada para verificar JWTs."
+    },
+    {
+      "name": "jwt.expiration-minutes",
+      "type": "java.lang.Long",
+      "description": "Tempo de expiração dos JWTs emitidos, em minutos.",
+      "defaultValue": 120
+    },
+    {
+      "name": "app.setup.master-key",
+      "type": "java.lang.String",
+      "description": "Chave mestra usada para autenticar requisições de setup inicial da aplicação."
+    },
+    {
+      "name": "google.oauth.client-id",
+      "type": "java.lang.String",
+      "description": "Client ID do Google OAuth usado para validar Google ID tokens no fluxo de login social."
+    }
+  ]
+}

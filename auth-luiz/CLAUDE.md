@@ -85,7 +85,8 @@ docker compose up --build
 - `services/api.js` — Instância Axios com injeção do token Bearer e logout automático em respostas 401.
 - `services/autenticacaoService.js` — Utilitários de armazenamento e verificação de expiração do token.
 - `router/index.js` — Guards: redireciona para `/setup` se o setup não estiver concluído; exige autenticação nas rotas com `requiresAuth`; redireciona usuários autenticados para longe do login/cadastro.
-- `views/` — Um Vue SFC por página (`Login`, `Cadastro`, `Conta`, `RecuperarSenha`, `RedefinirSenha`, `Setup`, `VerificacaoEmail`).
+- `views/` — Um Vue SFC por página (`Login`, `Cadastro`, `Conta`, `RecuperarSenha`, `RedefinirSenha`, `Setup`, `VerificacaoEmail`). `ContaView` inclui botão "Painel de Permissões" visível apenas ao admin mestre do PermLuiz (verificado via `GET /me/admin` em `VITE_PERM_LUIZ_URL`); ao clicar, abre o PermLuiz com o JWT no fragment da URL (`#token=<jwt>`).
+- `nginx.conf` — serve os arquivos estáticos com o header `Cross-Origin-Opener-Policy: unsafe-none`, necessário para que o popup do Google OAuth consiga enviar `postMessage` à janela pai.
 - Interface usa Bootstrap 5 + Bootstrap Icons.
 
 ### Resumo dos Endpoints da API
@@ -132,6 +133,11 @@ openssl rsa -in private.pem -pubout -out public.pem
 base64 -w 0 private.pem > private.b64
 base64 -w 0 public.pem > public.b64
 ```
+
+**Variáveis do frontend (`frontend/.env`):**
+- `VITE_API_BASE_URL` — URL da API do AuthLuiz (padrão: `http://localhost:8080`)
+- `VITE_PERM_LUIZ_URL` — URL do PermLuiz (padrão: `http://localhost:81`); usada para verificar admin e abrir o painel de permissões
+- `VITE_GOOGLE_CLIENT_ID` — client ID do Google OAuth
 
 ## Frontend como Implementação de Referência
 

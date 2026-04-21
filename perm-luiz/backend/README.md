@@ -28,23 +28,20 @@ src/main/java/.../permluiz/
 │   │   │                            POST/DELETE /admin/usuarios/{id}/roles/{roleId}
 │   │   └── dto/                     RoleRequest/Response, PermissaoRequest/Response
 │   ├── setup/
-│   │   ├── SetupController          GET/POST /setup
-│   │   ├── SetupService             Lógica do setup inicial
-│   │   └── SetupRequest             { "idUsuario": 1 }
+│   │   ├── SetupController          GET /setup
+│   │   └── SetupService             Retorna adminConfigurado (idAdminMestre != null)
 │   └── usuario/
 │       └── MeController             GET /me/roles
 │
 ├── config/
-│   ├── security/
-│   │   ├── SecurityConfig           Regras de autorização, CORS, OAuth2 resource server (JWKS)
-│   │   ├── AdminVerificador         Verifica se o JWT pertence ao admin mestre
-│   │   └── JsonAuthenticationEntryPoint  Resposta JSON para 401
-│   └── setup/
-│       └── SetupFilter              Retorna 503 se setup não estiver concluído
+│   └── security/
+│       ├── SecurityConfig           Regras de autorização, CORS, OAuth2 resource server (JWKS)
+│       ├── AdminVerificador         Verifica admin mestre; auto-promove 1º usuário autenticado
+│       └── JsonAuthenticationEntryPoint  Resposta JSON para 401
 │
 ├── domain/
 │   ├── configuracao/
-│   │   ├── entity/  ConfiguracaoAplicacao   Singleton: setupConcluido + idAdminMestre
+│   │   ├── entity/  ConfiguracaoAplicacao   Singleton: idAdminMestre (null = sem admin ainda)
 │   │   └── ConfiguracaoAplicacaoRepository
 │   ├── role/
 │   │   ├── entity/  Role                    @ManyToMany com Permissao
@@ -73,7 +70,6 @@ src/main/java/.../permluiz/
 Copie `backend/.env.example` para `backend/.env` e preencha:
 
 ```env
-APP_SETUP_MASTER_KEY=...           # chave para concluir o setup via POST /setup
 SPRING_DATASOURCE_URL=...          # jdbc:postgresql://host:5432/permluiz
 SPRING_DATASOURCE_USERNAME=...
 SPRING_DATASOURCE_PASSWORD=...
@@ -100,16 +96,16 @@ docker compose -f ../compose-dev.yaml up -d
 
 ### Setup
 
-| Método | Caminho  | Auth         | Descrição                                      |
-|--------|----------|--------------|------------------------------------------------|
-| GET    | `/setup` | Pública      | Verifica se o setup foi concluído              |
-| POST   | `/setup` | Chave mestra | Define o admin mestre (`{ "idUsuario": 1 }`)   |
+| Método | Caminho  | Auth    | Descrição                                                |
+|--------|----------|---------|----------------------------------------------------------|
+| GET    | `/setup` | Pública | Retorna `{ "adminConfigurado": true/false }`             |
 
 ### Usuário autenticado
 
-| Método | Caminho     | Auth | Descrição                                             |
-|--------|-------------|------|-------------------------------------------------------|
-| GET    | `/me/roles` | JWT  | Retorna os roles e permissões do usuário autenticado  |
+| Método | Caminho      | Auth | Descrição                                             |
+|--------|--------------|------|-------------------------------------------------------|
+| GET    | `/me/roles`  | JWT  | Retorna os roles e permissões do usuário autenticado  |
+| GET    | `/me/admin`  | JWT  | Retorna `{ "isAdmin": true/false }` — se o usuário é admin mestre |
 
 ### Admin mestre
 

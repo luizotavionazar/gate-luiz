@@ -39,6 +39,7 @@ Crie um arquivo `.env` na raiz do frontend com base no `.env.example`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8080
+VITE_PERM_LUIZ_URL=http://localhost:81
 VITE_GOOGLE_CLIENT_ID=seu-client-id-do-google.apps.googleusercontent.com
 ```
 
@@ -73,6 +74,7 @@ npm run preview  # pré-visualização do build de produção
 - Vinculação de conta Google (exige e-mail idêntico ao da conta)
 - Desvinculação de conta Google com confirmação de senha (bloqueada para contas criadas via Google)
 - Exclusão de conta com confirmação de senha
+- **Botão "Painel de Permissões"** — visível somente ao admin mestre do PermLuiz (verificado via `GET /me/admin`); abre o PermLuiz passando o JWT no fragment da URL (`#token=<jwt>`)
 
 ### Setup inicial
 

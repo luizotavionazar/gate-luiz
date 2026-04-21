@@ -17,11 +17,4 @@ public class SetupController {
     ResponseEntity<Map<String, Object>> status() {
         return ResponseEntity.ok(setupService.status());
     }
-
-    @PostMapping
-    ResponseEntity<Map<String, Object>> concluir(
-            @RequestHeader("X-Master-Key") String masterKey,
-            @RequestBody SetupRequest request) {
-        return ResponseEntity.ok(setupService.concluirSetup(masterKey, request));
-    }
 }

@@ -6,7 +6,7 @@ Este arquivo fornece orientações ao Claude Code (claude.ai/code) ao trabalhar 
 
 LuizStack é o repositório de orquestração Docker da stack completa formada por AuthLuiz e PermLuiz. Contém um único `compose.yaml` que sobe os dois serviços (e seus bancos de dados) em uma rede compartilhada.
 
-Este repositório **não contém código de aplicação** — apenas configuração de infraestrutura. O código de cada serviço vive nos seus próprios repositórios.
+Este repositório **não contém código de aplicação** — apenas configuração de infraestrutura. O código de cada serviço vive nos seus próprios diretorios.
 
 Inclui também o **pgAdmin** como ferramenta de administração visual dos bancos de dados PostgreSQL, acessível em http://localhost:5050.
 
@@ -14,9 +14,9 @@ Inclui também o **pgAdmin** como ferramenta de administração visual dos banco
 
 | Serviço | Repositório | Descrição |
 |---------|-------------|-----------|
-| **AuthLuiz** | `github.com/luizotavionazar/auth-luiz` | Identidade e autenticação — emite JWTs RS256, expõe JWKS |
-| **PermLuiz** | `github.com/luizotavionazar/perm-luiz` | Roles, permissões e controle de acesso |
-| **LuizStack** | `github.com/luizotavionazar/luiz-stack` | Orquestração Docker dos dois serviços (este repo) |
+| **AuthLuiz** | `c:\gate-luiz\auth-luiz` | Identidade e autenticação — emite JWTs RS256, expõe JWKS |
+| **PermLuiz** | `c:\gate-luiz\perm-luiz` | Roles, permissões e controle de acesso |
+| **LuizStack** | `c:\gate-luiz\luiz-stack` | Orquestração Docker dos dois serviços (este repo) |
 
 ## Estrutura do Repositório
 

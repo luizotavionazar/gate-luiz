@@ -29,7 +29,7 @@ O PermLuiz valida JWTs automaticamente buscando a chave pública do AuthLuiz via
 
 ```bash
 cp backend/.env.example backend/.env
-# Edite backend/.env com credenciais do banco, master key e URI do JWKS
+# Edite backend/.env com credenciais do banco e URI do JWKS
 
 # Subir banco de desenvolvimento
 docker compose -f compose-dev.yaml up -d
@@ -66,13 +66,13 @@ npm run preview  # pré-visualização do build de produção
 
 - `api/` — Controllers e DTOs, agrupados por feature (`admin`, `setup`, `usuario`)
 - `domain/` — Entidades JPA e repositórios, agrupados por domínio (`configuracao`, `role`, `permissao`, `usuariorole`)
-- `config/` — Configurações Spring: `security/` (JWKS, admin verificador) e `setup/` (SetupFilter)
+- `config/` — Configurações Spring: `security/` (JWKS, admin verificador)
 
 **Fluxos principais:**
 
-- **Guarda de setup:** `SetupFilter` retorna 503 com JSON para qualquer requisição se `configuracaoAplicacao.setupConcluido = false`. O setup é concluído via `POST /setup` usando `APP_SETUP_MASTER_KEY`, que recebe `{ "idUsuario": N }` e define o admin mestre.
+- **Admin mestre (promoção automática):** Não há setup manual. O primeiro usuário autenticado a chamar qualquer endpoint `/admin/**` é automaticamente promovido a admin mestre — `AdminVerificador.exigirAdmin(jwt)` detecta `idAdminMestre = null` e salva o ID do usuário atual. A tela `/setup` é exibida apenas informativamente quando nenhum admin está configurado (`adminConfigurado: false` no `GET /setup`).
 - **Validação de JWT:** Spring Security busca e cacheia a chave pública do AuthLuiz via `spring.security.oauth2.resourceserver.jwt.jwk-set-uri`. Todos os endpoints (exceto `/setup/**` e `/error`) exigem JWT válido. O `subject` do JWT é o `id` do usuário no AuthLuiz (como String).
-- **Verificação de admin:** `AdminVerificador.exigirAdmin(jwt)` extrai o subject do JWT, converte para Long e compara com `configuracaoAplicacao.idAdminMestre`. Qualquer diferença retorna 403.
+- **Verificação de admin:** `AdminVerificador.exigirAdmin(jwt)` extrai o subject do JWT, converte para Long e compara com `configuracaoAplicacao.idAdminMestre`. Qualquer diferença retorna 403. Se `idAdminMestre` for null, o usuário atual é promovido automaticamente (ver fluxo acima).
 - **Modelo de dados:** Roles agrupam permissões (N:N). Usuários recebem roles (N:N). O `idUsuario` em `usuarioRole` é apenas um Long — sem FK cross-database para o AuthLuiz.
 - **Permissões:** Armazenadas como `recurso` + `acao` em minúsculas (ex: `artigos`, `criar`). A constraint `UNIQUE(recurso, acao)` garante unicidade.
 
@@ -84,8 +84,10 @@ npm run preview  # pré-visualização do build de produção
 
 - `services/api.js` — Instância Axios apontando para o PermLuiz com injeção de Bearer token e logout automático em 401.
 - `services/autenticacaoService.js` — Armazenamento e leitura do JWT (obtido via AuthLuiz diretamente).
-- `router/index.js` — Guards: redireciona para `/setup` se setup não concluído; exige autenticação nas rotas com `requiresAuth`.
-- `views/` — Um Vue SFC por página (`Setup`, `Login`, `MinhaConta`, `AdminRoles`, `AdminPermissoes`, `AdminUsuarios`).
+- `router/index.js` — Guards: redireciona para `/setup` se nenhum admin estiver configurado (`adminConfigurado: false`); exige autenticação nas rotas com `requiresAuth`.
+- `main.js` — lê o fragment `#token=<jwt>` antes do mount, salva sessão via `salvarSessaoDoFragment()`, e limpa a URL com `history.replaceState`. Após o mount, redireciona para `/admin/roles`.
+- `views/` — Um Vue SFC por página (`Setup`, `SemAcesso`, `MinhaConta`, `AdminRoles`, `AdminPermissoes`, `AdminUsuarios`). Não há `LoginView` — o login é feito no AuthLuiz.
+- `nginx.conf` — proxy reverso: `/me/**`, `/admin/**` e `/setup/**` são encaminhados via `proxy_pass` para `http://permluiz-backend:8080`. Isso permite que o AuthLuiz chame `http://localhost:81/me/admin` sem apontar diretamente à porta 8081.
 - Interface usa Bootstrap 5 + Bootstrap Icons.
 
 ### Resumo dos Endpoints da API
@@ -94,9 +96,9 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 
 | Método | Caminho | Autenticação | Descrição |
 |--------|---------|--------------|-----------|
-| GET | `/setup` | Pública | Verifica se o setup foi concluído |
-| POST | `/setup` | Chave mestra | Define o admin mestre (`{ "idUsuario": N }`) |
+| GET | `/setup` | Pública | Retorna `{ "adminConfigurado": true/false }` |
 | GET | `/me/roles` | JWT | Retorna os roles e permissões do usuário autenticado |
+| GET | `/me/admin` | JWT | Retorna `{ "isAdmin": true/false }` — se o usuário é admin mestre |
 | GET | `/admin/roles` | JWT+Admin | Lista todos os roles |
 | POST | `/admin/roles` | JWT+Admin | Cria role |
 | PUT | `/admin/roles/{id}` | JWT+Admin | Atualiza role |
@@ -115,7 +117,6 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 
 Consulte `backend/.env.example`. Variáveis obrigatórias:
 
-- `APP_SETUP_MASTER_KEY` — usada para concluir o setup inicial
 - `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` — conexão com o Postgres
 - `AUTH_LUIZ_JWKS_URI` — URI do JWKS do AuthLuiz para validação dos JWTs
 
@@ -126,7 +127,9 @@ O frontend incluído neste repositório é uma **implementação de referência*
 ## CORS
 
 O backend aceita requisições das seguintes origens:
-- `http://localhost:81` — frontend do PermLuiz via Docker (porta 81)
+- `http://localhost` e `http://localhost:80` — frontend do AuthLuiz via Docker (porta 80)
+- `http://localhost:81` — frontend do PermLuiz via Docker (porta 81); na prática as chamadas chegam pelo proxy Nginx interno, mas a origin do browser ainda é `localhost:81`
+- `http://localhost:5173` — frontend do AuthLuiz em modo dev
 - `http://localhost:5174` — frontend do PermLuiz em modo dev
 
 ## Padrões de Mensagens

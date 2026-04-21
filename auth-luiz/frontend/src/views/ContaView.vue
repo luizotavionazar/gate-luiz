@@ -6,7 +6,10 @@
           <h1 class="h3 fw-bold mb-1">Minha conta</h1>
           <p class="text-muted mb-0">Gerencie seus dados, suas formas de acesso e a senha da AuthLuiz.</p>
         </div>
-        <button class="btn btn-outline-danger align-self-start align-self-md-center" @click="sair">Sair</button>
+        <div class="d-flex gap-2 align-self-start align-self-md-center">
+          <button v-if="isPermAdmin" class="btn btn-outline-secondary" @click="abrirPermLuiz">Painel de Permissões</button>
+          <button class="btn btn-outline-danger" @click="sair">Sair</button>
+        </div>
       </div>
 
       <div v-if="carregando" class="alert alert-info">Carregando conta...</div>
@@ -340,6 +343,7 @@
 </template>
 
 <script setup>
+import axios from 'axios'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -350,6 +354,7 @@ import {
   buscarMinhaConta,
   deletarMinhaConta,
   desvincularGoogle,
+  getToken,
   logout,
   marcarSenhaNaSessao,
   reenviarConfirmacaoAlteracaoEmail,
@@ -438,6 +443,24 @@ function limparMensagens() {
 function formatarDataHora(data) {
   if (!data) return 'Não informado'
   return new Date(data).toLocaleString('pt-BR')
+}
+
+const PERM_LUIZ_URL = import.meta.env.VITE_PERM_LUIZ_URL || 'http://localhost:81'
+const isPermAdmin = ref(false)
+
+async function verificarSeEAdmin() {
+  try {
+    const response = await axios.get(`${PERM_LUIZ_URL}/me/admin`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    })
+    isPermAdmin.value = response.data?.isAdmin === true
+  } catch {
+    isPermAdmin.value = false
+  }
+}
+
+function abrirPermLuiz() {
+  window.open(`${PERM_LUIZ_URL}#token=${getToken()}`, '_blank')
 }
 
 function sair() {
@@ -677,6 +700,7 @@ watch(googleVincularButtonRef, async (el) => {
 onMounted(async () => {
   limparMensagens()
   await carregarConta()
+  verificarSeEAdmin()
 })
 </script>
 
