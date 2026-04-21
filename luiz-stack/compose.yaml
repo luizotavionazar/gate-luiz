@@ -46,55 +46,55 @@ services:
       - authluiz-backend
     networks: [luiz-network]
 
-  # ── PermissoesLuiz ─────────────────────────────────────────────────────────
-  permissoes-db:
+  # ── Perm-Luiz ──────────────────────────────────────────────────────────────
+  permluiz-db:
     image: postgres:16-alpine
-    container_name: permissoes-db
+    container_name: permluiz-db
     environment:
-      POSTGRES_DB: permissoesluiz
-      POSTGRES_USER: ${PERMISSOES_DB_USER:-permissoes}
-      POSTGRES_PASSWORD: ${PERMISSOES_DB_PASSWORD:-permissoes}
+      POSTGRES_DB: permluiz
+      POSTGRES_USER: ${PERMLUIZ_DB_USER:-permluiz}
+      POSTGRES_PASSWORD: ${PERMLUIZ_DB_PASSWORD:-permluiz}
     volumes:
-      - permissoes-pgdata:/var/lib/postgresql/data
+      - permluiz-pgdata:/var/lib/postgresql/data
     networks: [luiz-network]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PERMISSOES_DB_USER:-permissoes} -d permissoesluiz"]
+      test: ["CMD-SHELL", "pg_isready -U ${PERMLUIZ_DB_USER:-permluiz} -d permluiz"]
       interval: 5s
       timeout: 3s
       retries: 20
 
-  permissoes-backend:
+  permluiz-backend:
     build:
-      context: ../permissoes-luiz/backend
-    container_name: permissoes-backend
+      context: ../perm-luiz/backend
+    container_name: permluiz-backend
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://permissoes-db:5432/permissoesluiz
-      SPRING_DATASOURCE_USERNAME: ${PERMISSOES_DB_USER:-permissoes}
-      SPRING_DATASOURCE_PASSWORD: ${PERMISSOES_DB_PASSWORD:-permissoes}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://permluiz-db:5432/permluiz
+      SPRING_DATASOURCE_USERNAME: ${PERMLUIZ_DB_USER:-permluiz}
+      SPRING_DATASOURCE_PASSWORD: ${PERMLUIZ_DB_PASSWORD:-permluiz}
       AUTH_LUIZ_JWKS_URI: http://authluiz-backend:8080/auth/.well-known/jwks.json
-      APP_SETUP_MASTER_KEY: ${PERMISSOES_SETUP_MASTER_KEY}
+      APP_SETUP_MASTER_KEY: ${PERMLUIZ_SETUP_MASTER_KEY}
     ports:
       - "8081:8080"
     depends_on:
-      permissoes-db:
+      permluiz-db:
         condition: service_healthy
       authluiz-backend:
         condition: service_started
     networks: [luiz-network]
 
-  permissoes-frontend:
+  permluiz-frontend:
     build:
-      context: ../permissoes-luiz/frontend
-    container_name: permissoes-frontend
+      context: ../perm-luiz/frontend
+    container_name: permluiz-frontend
     ports:
       - "81:80"
     depends_on:
-      - permissoes-backend
+      - permluiz-backend
     networks: [luiz-network]
 
 volumes:
   authluiz-pgdata:
-  permissoes-pgdata:
+  permluiz-pgdata:
 
 networks:
   luiz-network:

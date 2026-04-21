@@ -121,7 +121,7 @@ AuthLuiz é parte de uma stack maior composta por serviços independentes:
 | Serviço | Repositório | Descrição |
 |---------|-------------|-----------|
 | **AuthLuiz** | `github.com/luizotavionazar/auth-luiz` | Identidade e autenticação (este repo) |
-| **PermissoesLuiz** | `github.com/luizotavionazar/permissoes-luiz` | Roles, permissões e controle de acesso |
+| **PermLuiz** | `github.com/luizotavionazar/perm-luiz` | Roles, permissões e controle de acesso |
 | **LuizStack** | `github.com/luizotavionazar/luiz-stack` | Orquestração Docker dos dois serviços |
 
-A chave pública RSA do AuthLuiz é exposta em `GET /auth/.well-known/jwks.json`, permitindo que o PermissoesLuiz valide JWTs de forma autônoma sem compartilhar segredos.
+A chave pública RSA do AuthLuiz é exposta em `GET /auth/.well-known/jwks.json`, permitindo que o PermLuiz valide JWTs de forma autônoma sem compartilhar segredos.

@@ -69,7 +69,7 @@ docker compose up --build
 **Fluxos principais:**
 
 - **Guarda de setup:** `SetupFilter` intercepta todas as requisições (exceto `/setup/**`) e redireciona para o setup se `configuracaoAplicacao.setupConcluido = false`. O setup é concluído via `POST /setup` usando `APP_SETUP_MASTER_KEY`.
-- **Autenticação:** Spring Security é stateless (sem sessões). O JWT é emitido pelo `JwtService` no login usando **RS256** (RSA 2048-bit assimétrico); todos os endpoints protegidos o validam via OAuth2 resource server. A chave privada assina o token; a chave pública está exposta em `GET /auth/.well-known/jwks.json` para que outros serviços (ex: PermissoesLuiz) possam verificar tokens de forma autônoma. O CORS aceita `http://localhost:5173` e `http://localhost:5174` (PermissoesLuiz).
+- **Autenticação:** Spring Security é stateless (sem sessões). O JWT é emitido pelo `JwtService` no login usando **RS256** (RSA 2048-bit assimétrico); todos os endpoints protegidos o validam via OAuth2 resource server. A chave privada assina o token; a chave pública está exposta em `GET /auth/.well-known/jwks.json` para que outros serviços (ex: PermLuiz) possam verificar tokens de forma autônoma. O CORS aceita `http://localhost:5173` e `http://localhost:5174` (PermLuiz).
 - **Recuperação de senha:** Limitada por IP via `ControleRecuperacaoSenha`. Os tokens são hasheados antes de serem armazenados (`TokenRecuperacaoSenha`). A limpeza de tokens expirados é feita pelo `TokenRecuperacaoSenhaExpiracaoService`.
 - **Google OAuth:** O frontend obtém um Google ID token via Google Identity Services SDK; o backend valida (`GoogleIdTokenValidatorService`/`GoogleAudienceValidator`) e emite seu próprio JWT. O vínculo com Google é gerenciado na tela de conta (`POST /auth/oauth/google/vincular` e `DELETE /auth/oauth/google/vincular`); o login com Google nunca vincula automaticamente — retorna 409 se o e-mail já existe. Vinculação exige que o e-mail do Google seja idêntico ao da conta. Desvinculação exige senha definida e confirmação por senha via modal. **Contas criadas via Google (`providerOrigem = GOOGLE`) não podem ser desvinculadas**; o campo `providerOrigem` (nullable `ProviderExterno` enum) no `Usuario` registra qual provider originou o cadastro — null indica e-mail/senha, valor preenchido indica OAuth. Esse campo é extensível para futuros providers (Apple, GitHub, etc.).
 - **Configuração de e-mail:** As credenciais SMTP ficam criptografadas na tabela `configuracaoAplicacao` via `CriptografiaConfiguracaoService` (BouncyCastle). O `EmailService` as lê em tempo de execução.
@@ -146,18 +146,18 @@ O frontend incluído neste repositório é uma **implementação de referência*
 Auth-Luiz é parte de um ecossistema de APIs reutilizáveis independentes:
 
 - **auth-luiz** — autenticação e identidade (este repositório): `github.com/luizotavionazar/auth-luiz`
-- **permissoes-luiz** — roles e permissões; verifica JWTs do Auth-Luiz via JWKS: `github.com/luizotavionazar/permissoes-luiz`
+- **perm-luiz** — roles e permissões; verifica JWTs do Auth-Luiz via JWKS: `github.com/luizotavionazar/perm-luiz`
 - **luiz-stack** — orquestração Docker que sobe ambos os serviços juntos: `github.com/luizotavionazar/luiz-stack`
 
-O PermissoesLuiz usa `GET /auth/.well-known/jwks.json` para obter a chave pública e verificar tokens de forma autônoma — sem compartilhar segredos.
+O PermLuiz usa `GET /auth/.well-known/jwks.json` para obter a chave pública e verificar tokens de forma autônoma — sem compartilhar segredos.
 
 ## CORS
 
 O backend aceita requisições das seguintes origens:
 - `http://localhost` e `http://localhost:80` — frontend do AuthLuiz via Docker (porta 80)
-- `http://localhost:81` — frontend do PermissoesLuiz via Docker (porta 81)
+- `http://localhost:81` — frontend do PermLuiz via Docker (porta 81)
 - `http://localhost:5173` — frontend do AuthLuiz em modo dev
-- `http://localhost:5174` — frontend do PermissoesLuiz em modo dev
+- `http://localhost:5174` — frontend do PermLuiz em modo dev
 
 ## Formato das Chaves RSA
 

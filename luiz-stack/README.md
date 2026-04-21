@@ -1,6 +1,6 @@
 # LuizStack
 
-Orquestração Docker da stack completa formada por AuthLuiz e PermissoesLuiz. Com um único `docker compose up`, os dois serviços (e seus bancos de dados) sobem em uma rede compartilhada.
+Orquestração Docker da stack completa formada por AuthLuiz e PermLuiz. Com um único `docker compose up`, os dois serviços (e seus bancos de dados) sobem em uma rede compartilhada.
 
 ## Serviços orquestrados
 
@@ -9,11 +9,11 @@ Orquestração Docker da stack completa formada por AuthLuiz e PermissoesLuiz. C
 | **authluiz-backend** | `8080` | `github.com/luizotavionazar/auth-luiz` |
 | **authluiz-frontend** | `80` | `github.com/luizotavionazar/auth-luiz` |
 | **authluiz-db** | interno | PostgreSQL do AuthLuiz |
-| **permissoes-backend** | `8081` | `github.com/luizotavionazar/permissoes-luiz` |
-| **permissoes-frontend** | `81` | `github.com/luizotavionazar/permissoes-luiz` |
-| **permissoes-db** | interno | PostgreSQL do PermissoesLuiz |
+| **permluiz-backend** | `8081` | `github.com/luizotavionazar/perm-luiz` |
+| **permluiz-frontend** | `81` | `github.com/luizotavionazar/perm-luiz` |
+| **permluiz-db** | interno | PostgreSQL do PermLuiz |
 
-Todos os serviços compartilham a rede `luiz-network`. O PermissoesLuiz busca a chave pública do AuthLuiz via JWKS na rede interna — sem expor segredos.
+Todos os serviços compartilham a rede `luiz-network`. O PermLuiz busca a chave pública do AuthLuiz via JWKS na rede interna — sem expor segredos.
 
 ## Pré-requisitos
 
@@ -21,7 +21,7 @@ Todos os serviços compartilham a rede `luiz-network`. O PermissoesLuiz busca a 
 - Repositórios clonados como irmãos deste diretório:
   ```
   c:\auth-luiz\
-  c:\permissoes-luiz\
+  c:\perm-luiz\
   c:\luiz-stack\        ← este repo
   ```
 
@@ -46,13 +46,13 @@ cp .env.example .env
 | `JWT_RSA_PRIVATE_KEY`      | Chave privada RSA em base64 (PKCS#8)           |
 | `JWT_RSA_PUBLIC_KEY`       | Chave pública RSA em base64 (X.509)            |
 
-#### PermissoesLuiz
+#### PermLuiz
 
 | Variável                     | Descrição                                    |
 |------------------------------|----------------------------------------------|
-| `PERMISSOES_DB_USER`         | Usuário do banco do PermissoesLuiz           |
-| `PERMISSOES_DB_PASSWORD`     | Senha do banco do PermissoesLuiz             |
-| `PERMISSOES_SETUP_MASTER_KEY`| Chave mestra do setup do PermissoesLuiz      |
+| `PERMLUIZ_DB_USER`         | Usuário do banco do PermLuiz           |
+| `PERMLUIZ_DB_PASSWORD`     | Senha do banco do PermLuiz             |
+| `PERMLUIZ_SETUP_MASTER_KEY`| Chave mestra do setup do PermLuiz      |
 
 > A `AUTH_LUIZ_JWKS_URI` é injetada automaticamente pelo `compose.yaml` — não precisa estar no `.env`.
 
@@ -78,7 +78,7 @@ docker compose down -v
 
 1. `authluiz-db` sobe e passa o healthcheck
 2. `authluiz-backend` sobe, aplica migrations Flyway, expõe `:8080`
-3. `permissoes-db` sobe e passa o healthcheck
-4. `permissoes-backend` sobe, aplica migrations Flyway, expõe `:8081`
+3. `permluiz-db` sobe e passa o healthcheck
+4. `permluiz-backend` sobe, aplica migrations Flyway, expõe `:8081`
    - Busca e cacheia a chave pública via `http://authluiz-backend:8080/auth/.well-known/jwks.json`
 5. Frontends sobem e servem via nginx em `:80` e `:81`

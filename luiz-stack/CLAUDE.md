@@ -4,7 +4,7 @@ Este arquivo fornece orientações ao Claude Code (claude.ai/code) ao trabalhar 
 
 ## Visão Geral do Projeto
 
-LuizStack é o repositório de orquestração Docker da stack completa formada por AuthLuiz e PermissoesLuiz. Contém um único `compose.yaml` que sobe os dois serviços (e seus bancos de dados) em uma rede compartilhada.
+LuizStack é o repositório de orquestração Docker da stack completa formada por AuthLuiz e PermLuiz. Contém um único `compose.yaml` que sobe os dois serviços (e seus bancos de dados) em uma rede compartilhada.
 
 Este repositório **não contém código de aplicação** — apenas configuração de infraestrutura. O código de cada serviço vive nos seus próprios repositórios.
 
@@ -13,7 +13,7 @@ Este repositório **não contém código de aplicação** — apenas configuraç
 | Serviço | Repositório | Descrição |
 |---------|-------------|-----------|
 | **AuthLuiz** | `github.com/luizotavionazar/auth-luiz` | Identidade e autenticação — emite JWTs RS256, expõe JWKS |
-| **PermissoesLuiz** | `github.com/luizotavionazar/permissoes-luiz` | Roles, permissões e controle de acesso |
+| **PermLuiz** | `github.com/luizotavionazar/perm-luiz` | Roles, permissões e controle de acesso |
 | **LuizStack** | `github.com/luizotavionazar/luiz-stack` | Orquestração Docker dos dois serviços (este repo) |
 
 ## Estrutura do Repositório
@@ -33,7 +33,7 @@ luiz-stack/
 - Os três diretórios devem ser irmãos dentro de `gate-luiz/`:
   ```
   c:\gate-luiz\auth-luiz\
-  c:\gate-luiz\permissoes-luiz\
+  c:\gate-luiz\perm-luiz\
   c:\gate-luiz\luiz-stack\
   ```
 
@@ -56,9 +56,9 @@ Consulte `.env.example`. Variáveis obrigatórias:
 - `JWT_RSA_PUBLIC_KEY` — chave pública RSA em base64 (**formato PEM completo em base64**, não DER)
 - `JWT_EXPIRATION_MINUTES` — expiração dos JWTs (padrão: 120)
 
-**PermissoesLuiz:**
-- `PERMISSOES_DB_USER` / `PERMISSOES_DB_PASSWORD` — credenciais do banco do PermissoesLuiz
-- `PERMISSOES_SETUP_MASTER_KEY` — chave mestra do setup do PermissoesLuiz
+**PermLuiz:**
+- `PERMLUIZ_DB_USER` / `PERMLUIZ_DB_PASSWORD` — credenciais do banco do PermLuiz
+- `PERMLUIZ_SETUP_MASTER_KEY` — chave mestra do setup do PermLuiz
 
 > `AUTH_LUIZ_JWKS_URI` é injetada diretamente pelo `compose.yaml` com o hostname interno do Docker — não precisa estar no `.env`.
 
@@ -100,18 +100,18 @@ docker compose down -v
 |---------|---------------|-----------|
 | `authluiz-backend` | `8080` | API de autenticação |
 | `authluiz-frontend` | `80` | Frontend do AuthLuiz |
-| `permissoes-backend` | `8081` | API de autorização |
-| `permissoes-frontend` | `81` | Frontend do PermissoesLuiz |
+| `permluiz-backend` | `8081` | API de autorização |
+| `permluiz-frontend` | `81` | Frontend do PermLuiz |
 | `authluiz-db` | interno | PostgreSQL do AuthLuiz |
-| `permissoes-db` | interno | PostgreSQL do PermissoesLuiz |
+| `permluiz-db` | interno | PostgreSQL do PermLuiz |
 
 ## Dependências de Inicialização
 
 O `compose.yaml` garante a ordem correta via `depends_on` com `condition: service_healthy`:
 1. `authluiz-db` → healthcheck pg_isready
 2. `authluiz-backend` → depende de `authluiz-db`
-3. `permissoes-db` → healthcheck pg_isready
-4. `permissoes-backend` → depende de `permissoes-db` e `authluiz-backend`
+3. `permluiz-db` → healthcheck pg_isready
+4. `permluiz-backend` → depende de `permluiz-db` e `authluiz-backend`
 5. Frontends → dependem dos respectivos backends
 
 ## Fluxo de Trabalho com Claude
