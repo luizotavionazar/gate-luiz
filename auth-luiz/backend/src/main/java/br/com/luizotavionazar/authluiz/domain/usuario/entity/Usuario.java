@@ -57,6 +57,13 @@ public class Usuario implements UserDetails {
     @Column(name = "providerOrigem", length = 50)
     private ProviderExterno providerOrigem;
 
+    @Column(name = "telefone", length = 20)
+    private String telefone;
+
+    @Builder.Default
+    @Column(name = "telefoneVerificado", nullable = false)
+    private boolean telefoneVerificado = false;
+
     public boolean possuiSenha() {
         return senhaHash != null && !senhaHash.isBlank();
     }

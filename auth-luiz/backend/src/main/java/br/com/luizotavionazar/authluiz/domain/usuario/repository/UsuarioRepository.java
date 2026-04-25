@@ -16,6 +16,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 
     boolean existsByEmailAndIdNot(String email, Integer id);
 
+    boolean existsByTelefone(String telefone);
+
+    boolean existsByTelefoneAndIdNot(String telefone, Integer id);
+
     // Atualiza apenas a coluna emailPendente via JPQL direto para evitar que o
     // @UpdateTimestamp dispare — dataAtualiza só deve ser atualizada quando o
     // e-mail for de fato confirmado e trocado, não ao registrar a pendência.

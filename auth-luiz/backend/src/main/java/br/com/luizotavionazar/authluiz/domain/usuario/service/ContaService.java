@@ -5,6 +5,7 @@ import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
+import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarTelefoneRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.ControleAlteracaoEmail;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
@@ -109,6 +110,33 @@ public class ContaService {
         String token = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, emailNormalizado, ip);
         emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), emailNormalizado, token);
 
+        return ContaResponse.from(usuario, temLoginGoogle);
+    }
+
+    @Transactional
+    public ContaResponse atualizarTelefone(Integer idUsuario, AtualizarTelefoneRequest request) {
+        Usuario usuario = buscarUsuario(idUsuario);
+
+        if (!usuario.isEmailVerificado()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Confirme seu e-mail antes de alterar o telefone!");
+        }
+
+        String telefoneNormalizado = (request.telefone() != null && !request.telefone().isBlank())
+                ? request.telefone().trim()
+                : null;
+
+        if (telefoneNormalizado != null
+                && usuarioRepository.existsByTelefoneAndIdNot(telefoneNormalizado, idUsuario)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Telefone já cadastrado!");
+        }
+
+        usuario.setTelefone(telefoneNormalizado);
+        usuario.setTelefoneVerificado(false);
+        usuarioRepository.save(usuario);
+
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
+                ProviderExterno.GOOGLE);
         return ContaResponse.from(usuario, temLoginGoogle);
     }
 

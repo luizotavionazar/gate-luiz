@@ -35,7 +35,7 @@ src/main/java/.../authluiz/
 │   ├── conta/
 │   │   ├── controller/ ContaController      GET/PATCH /auth/me, DELETE /auth/me
 │   │   └── dto/        AtualizarNomeRequest, AtualizarEmailRequest,
-│   │                   AtualizarSenhaRequest, DeletarContaRequest
+│   │                   AtualizarSenhaRequest, AtualizarTelefoneRequest, DeletarContaRequest
 │   ├── oauth/
 │   │   ├── controller/ OAuthController      POST /auth/oauth/google
 │   │   │                                    POST/DELETE /auth/oauth/google/vincular
@@ -118,6 +118,8 @@ src/main/java/.../authluiz/
 | Arquivo                      | Conteúdo                                                                 |
 |------------------------------|--------------------------------------------------------------------------|
 | `V1__schema_inicial.sql`     | Schema completo: `usuario`, `tokenRecuperacaoSenha`, `controleRecuperacaoSenha`, `configuracaoAplicacao`, `identidadeExterna`, `tokenConfirmacao`, `controleAlteracaoEmail` — com todos os `ON DELETE CASCADE` |
+| `V2__adicionar_telefone_usuario.sql` | Adiciona colunas `telefone` (VARCHAR 20, nullable) e `telefoneVerificado` (boolean) à tabela `usuario` |
+| `V3__unique_telefone_usuario.sql`    | Adiciona constraint `uq_usuario_telefone` — unicidade de telefone (NULLs múltiplos permitidos pelo PostgreSQL) |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -171,6 +173,7 @@ docker compose -f ../compose-dev.yaml up -d
 | PATCH       | `/auth/me/nome`                    | JWT          | Atualiza nome                                      |
 | PATCH       | `/auth/me/email`                   | JWT          | Solicita alteração de e-mail (sempre envia confirmação) |
 | PATCH       | `/auth/me/senha`                   | JWT          | Altera ou define senha                             |
+| PATCH       | `/auth/me/telefone`                | JWT          | Atualiza ou remove telefone (null remove; sempre define telefoneVerificado=false) |
 | DELETE      | `/auth/me`                         | JWT          | Exclui a conta                                     |
 | GET         | `/auth/verificacao/confirmar`      | Pública      | Confirma e-mail via token (cadastro ou alteração)  |
 | POST        | `/auth/verificacao/reenviar`       | JWT          | Reenvia e-mail de verificação de cadastro (cooldown: 2 min) |

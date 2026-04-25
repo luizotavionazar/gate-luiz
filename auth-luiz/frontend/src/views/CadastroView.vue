@@ -19,6 +19,17 @@
               <input id="email" v-model="form.email" type="email" class="form-control" placeholder="seuemail@exemplo.com" required />
             </div>
 
+            <div class="col-md-12 mb-3">
+              <label for="telefone" class="form-label">
+                Telefone
+                <span class="text-muted fw-normal" style="font-size:0.85em;">(opcional)</span>
+              </label>
+              <input id="telefone" v-model="form.telefone" type="tel" class="form-control" placeholder="+5511987654321" />
+              <div v-if="form.telefone.length > 0" class="small mt-1" :class="telefoneValido ? 'text-success' : 'text-danger'">
+                {{ telefoneValido ? '✓ Formato válido' : '✕ Use o formato internacional (ex: +5511987654321)' }}
+              </div>
+            </div>
+
             <div class="col-md-6 mb-3">
               <label for="senha" class="form-label">Crie sua senha</label>
               <div class="position-relative">
@@ -74,7 +85,7 @@ import { cadastrar } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 
 const router = useRouter()
-const form = reactive({ nome: '', email: '', senha: '', confSenha: '' })
+const form = reactive({ nome: '', email: '', senha: '', confSenha: '', telefone: '' })
 const carregando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
@@ -92,6 +103,7 @@ const senhaRegras = computed(() => ({
 
 const senhaValida = computed(() => Object.values(senhaRegras.value).every(Boolean))
 const senhasCoincidem = computed(() => form.confSenha.length > 0 && form.senha === form.confSenha)
+const telefoneValido = computed(() => /^\+[1-9]\d{7,14}$/.test(form.telefone.trim()))
 const mostrarRegrasSenha = computed(() => senhaEmFoco.value || form.senha.length > 0)
 const mostrarValidacaoConfirmacao = computed(() => confirmacaoEmFoco.value || form.confSenha.length > 0)
 
@@ -109,10 +121,16 @@ async function enviarCadastro() {
     return
   }
 
+  const telefone = form.telefone.trim() || null
+  if (telefone && !telefoneValido.value) {
+    erro.value = 'O telefone informado é inválido. Use o formato internacional (ex: +5511987654321).'
+    return
+  }
+
   carregando.value = true
 
   try {
-    await cadastrar({ nome: form.nome.trim(), email: form.email.trim(), senha: form.senha })
+    await cadastrar({ nome: form.nome.trim(), email: form.email.trim(), senha: form.senha, telefone })
     sucesso.value = 'Cadastro realizado com sucesso! Redirecionando para o login...'
     setTimeout(() => router.push('/login'), 3200)
   } catch (e) {

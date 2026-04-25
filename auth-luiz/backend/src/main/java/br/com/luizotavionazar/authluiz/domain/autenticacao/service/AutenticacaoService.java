@@ -61,7 +61,7 @@ public class AutenticacaoService {
 
         politicaSenhaService.validar(request.senha());
 
-        Usuario usuario = usuarioService.cadastrar(request.nomeNormalizado(), emailNormalizado, request.senha());
+        Usuario usuario = usuarioService.cadastrar(request.nomeNormalizado(), emailNormalizado, request.senha(), request.telefone());
 
         usuario.setEmailVerificado(false);
         usuarioRepository.save(usuario);

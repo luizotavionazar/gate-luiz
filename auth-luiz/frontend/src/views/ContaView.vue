@@ -60,6 +60,9 @@
                 <span class="badge rounded-pill" :class="conta.temLoginGoogle ? 'text-bg-success-subtle text-success-emphasis border' : 'text-bg-secondary-subtle text-secondary-emphasis border'">
                   {{ conta.temLoginGoogle ? 'Google vinculado' : 'Google não vinculado' }}
                 </span>
+                <span class="badge rounded-pill" :class="conta.telefoneVerificado ? 'text-bg-success-subtle text-success-emphasis border' : conta.telefone ? 'text-bg-warning-subtle text-warning-emphasis border' : 'text-bg-secondary-subtle text-secondary-emphasis border'">
+                  {{ conta.telefoneVerificado ? 'Telefone verificado' : conta.telefone ? 'Telefone não verificado' : 'Sem telefone' }}
+                </span>
               </div>
             </div>
 
@@ -116,6 +119,29 @@
                   <div class="d-grid">
                     <button class="btn btn-primary" :disabled="salvandoEmail || !conta.emailVerificado">
                       {{ salvandoEmail ? 'Salvando...' : 'Salvar e-mail' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="card shadow border-0 rounded-4 h-100">
+              <div class="card-body p-4">
+                <h2 class="h5 mb-3">Alterar telefone</h2>
+                <form @submit.prevent="salvarTelefone">
+                  <div class="mb-3">
+                    <label class="form-label">Telefone</label>
+                    <input v-model="formTelefone.telefone" type="tel" class="form-control" placeholder="+5511987654321" />
+                  </div>
+
+                  <div v-if="mensagemTelefone" class="alert alert-success py-2 small">{{ mensagemTelefone }}</div>
+                  <div v-if="erroTelefone" class="alert alert-danger py-2 small">{{ erroTelefone }}</div>
+
+                  <div class="d-grid">
+                    <button class="btn btn-primary" :disabled="salvandoTelefone || !conta.emailVerificado">
+                      {{ salvandoTelefone ? 'Salvando...' : 'Salvar telefone' }}
                     </button>
                   </div>
                 </form>
@@ -349,6 +375,7 @@ import api from '../services/api'
 import {
   atualizarMeuEmail,
   atualizarMeuNome,
+  atualizarMeuTelefone,
   atualizarMinhaSenha,
   atualizarSessaoComConta,
   buscarMinhaConta,
@@ -372,17 +399,21 @@ const erro = ref('')
 const formNome = reactive({ nome: '' })
 const formEmail = reactive({ email: '' })
 const formSenha = reactive({ senhaAtual: '', novaSenha: '', confirmacao: '' })
+const formTelefone = reactive({ telefone: '' })
 
 const salvandoNome = ref(false)
 const salvandoEmail = ref(false)
 const salvandoSenha = ref(false)
+const salvandoTelefone = ref(false)
 
 const mensagemNome = ref('')
 const mensagemEmail = ref('')
 const mensagemSenha = ref('')
+const mensagemTelefone = ref('')
 const erroNome = ref('')
 const erroEmail = ref('')
 const erroSenha = ref('')
+const erroTelefone = ref('')
 
 const reenviando = ref(false)
 const mensagemReenvioVerificacao = ref('')
@@ -429,15 +460,18 @@ const mostrarValidacaoConfirmacao = computed(() => confirmacaoEmFoco.value || fo
 function preencherFormularios() {
   formNome.nome = conta.value?.nome || ''
   formEmail.email = conta.value?.email || ''
+  formTelefone.telefone = conta.value?.telefone || ''
 }
 
 function limparMensagens() {
   mensagemNome.value = ''
   mensagemEmail.value = ''
   mensagemSenha.value = ''
+  mensagemTelefone.value = ''
   erroNome.value = ''
   erroEmail.value = ''
   erroSenha.value = ''
+  erroTelefone.value = ''
 }
 
 function formatarDataHora(data) {
@@ -517,6 +551,26 @@ async function salvarEmail() {
     console.error(e)
   } finally {
     salvandoEmail.value = false
+  }
+}
+
+async function salvarTelefone() {
+  mensagemTelefone.value = ''
+  erroTelefone.value = ''
+  salvandoTelefone.value = true
+
+  const telefoneParaEnviar = formTelefone.telefone.trim() || null
+
+  try {
+    conta.value = await atualizarMeuTelefone({ telefone: telefoneParaEnviar })
+    atualizarSessaoComConta(conta.value)
+    preencherFormularios()
+    mensagemTelefone.value = telefoneParaEnviar ? 'Telefone salvo com sucesso!' : 'Telefone removido com sucesso!'
+  } catch (e) {
+    erroTelefone.value = extrairMensagemErro(e, 'Não foi possível atualizar o telefone.')
+    console.error(e)
+  } finally {
+    salvandoTelefone.value = false
   }
 }
 

@@ -3,6 +3,7 @@ package br.com.luizotavionazar.authluiz.api.autenticacao.dto;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.PoliticaSenha;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record CadastroRequest(
@@ -22,7 +23,11 @@ public record CadastroRequest(
                 message = "A senha deve ter entre " + PoliticaSenha.MIN_CARACTERES
                         + " e " + PoliticaSenha.MAX_CARACTERES + " caracteres"
         )
-        String senha
+        String senha,
+
+        @Pattern(regexp = "^\\+[1-9]\\d{7,14}$",
+                message = "Telefone deve estar no formato internacional (ex: +5511987654321)")
+        String telefone
 ) {
     public String emailNormalizado() {
         return email == null ? null : email.trim().toLowerCase();

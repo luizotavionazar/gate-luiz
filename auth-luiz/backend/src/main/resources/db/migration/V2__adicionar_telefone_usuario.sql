@@ -1,0 +1,3 @@
+ALTER TABLE "usuario"
+  ADD COLUMN "telefone" VARCHAR(20) NULL,
+  ADD COLUMN "telefoneVerificado" BOOLEAN NOT NULL DEFAULT FALSE;

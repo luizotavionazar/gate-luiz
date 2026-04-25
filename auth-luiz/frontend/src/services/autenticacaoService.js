@@ -80,6 +80,15 @@ export async function atualizarMinhaSenha(dados) {
   return response.data
 }
 
+export async function atualizarMeuTelefone(dados) {
+  const response = await authApi.patch('/auth/me/telefone', dados, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`
+    }
+  })
+  return response.data
+}
+
 export function salvarSessao(loginResponse) {
   const expiresAt = Date.now() + loginResponse.expiresInMinutes * 60 * 1000
 

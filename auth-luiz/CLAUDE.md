@@ -107,6 +107,7 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | PATCH | `/auth/me/nome` | JWT | Atualiza nome do usuário |
 | PATCH | `/auth/me/email` | JWT | Atualiza e-mail (bloqueado para contas com Google vinculado; sempre envia e-mail de confirmação para o novo endereço e salva em `emailPendente`) |
 | PATCH | `/auth/me/senha` | JWT | Atualiza ou define senha (bloqueado se e-mail não verificado) |
+| PATCH | `/auth/me/telefone` | JWT | Atualiza ou remove telefone (null remove; sempre define `telefoneVerificado=false`; bloqueado se e-mail não verificado) |
 | DELETE | `/auth/me` | JWT | Exclui a conta do usuário autenticado (sempre permitido, independente do status de verificação) |
 | GET | `/auth/verificacao/confirmar` | Pública | Confirma e-mail via token (cadastro ou alteração de e-mail) |
 | POST | `/auth/verificacao/reenviar` | JWT | Reenvia e-mail de verificação de cadastro (cooldown de 2 min) |
@@ -178,6 +179,17 @@ O endpoint `GET /setup/status` retorna `bootstrapOk: true` quando `SPRING_DATASO
 ## Integridade Referencial com Usuário
 
 As tabelas `tokenRecuperacaoSenha`, `identidadeExterna`, `tokenConfirmacao` e `controleAlteracaoEmail` possuem `ON DELETE CASCADE` na FK para `usuario`. Se no futuro forem criadas novas tabelas com FK para `usuario`, garantir que também tenham `ON DELETE CASCADE` para que a deleção do usuário continue funcionando sem erros de integridade referencial.
+
+## Telefone do Usuário
+
+A entidade `Usuario` possui os campos `telefone` (VARCHAR 20, nullable, único, formato E.164: `+5511987654321`) e `telefoneVerificado` (boolean, default false). O campo é opcional no cadastro e atualizável via `PATCH /auth/me/telefone` (null remove o número). Sempre que o número é alterado, `telefoneVerificado` volta a `false`. Dois usuários não podem ter o mesmo telefone — a unicidade é validada na camada de serviço (409 Conflict) e reforçada por constraint no banco (`uq_usuario_telefone`). Múltiplos `NULL` são permitidos (comportamento padrão do PostgreSQL).
+
+**Verificação e recuperação de senha via telefone ainda não implementadas.** A estrutura foi adicionada antecipadamente. Quando implementar:
+- Provider recomendado: **Twilio** (suporta WhatsApp Business API + SMS com o mesmo SDK) ou **Zenvia** (alternativa BR).
+- Fluxo de verificação: OTP de 6 dígitos, expiração 10 min, `telefoneVerificado = true` ao confirmar.
+- Recuperação: se `telefoneVerificado = true`, oferecer link/código via WhatsApp (fallback SMS).
+- Credenciais do provider devem ser adicionadas à `configuracaoAplicacao` e criptografadas como o SMTP.
+- Envio sempre `@Async`, seguindo o padrão do `EmailService`.
 
 ## Centralização de Mensagens e Validações
 

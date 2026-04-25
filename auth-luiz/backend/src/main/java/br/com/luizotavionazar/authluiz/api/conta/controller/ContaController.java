@@ -5,6 +5,7 @@ import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
+import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarTelefoneRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
 import br.com.luizotavionazar.authluiz.domain.permluiz.PermLuizService;
 import br.com.luizotavionazar.authluiz.domain.usuario.service.ContaService;
@@ -69,6 +70,15 @@ public class ContaController {
     ) {
         Integer idUsuario = Integer.valueOf(jwt.getSubject());
         return ResponseEntity.ok(contaService.atualizarSenha(idUsuario, request));
+    }
+
+    @PatchMapping("/telefone")
+    public ResponseEntity<ContaResponse> atualizarTelefone(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody AtualizarTelefoneRequest request
+    ) {
+        Integer idUsuario = Integer.valueOf(jwt.getSubject());
+        return ResponseEntity.ok(contaService.atualizarTelefone(idUsuario, request));
     }
 
     @DeleteMapping
