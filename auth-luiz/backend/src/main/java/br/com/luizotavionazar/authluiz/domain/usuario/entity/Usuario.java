@@ -64,6 +64,9 @@ public class Usuario implements UserDetails {
     @Column(name = "telefoneVerificado", nullable = false)
     private boolean telefoneVerificado = false;
 
+    @Column(name = "ultimoLogin")
+    private LocalDateTime ultimoLogin;
+
     public boolean possuiSenha() {
         return senhaHash != null && !senhaHash.isBlank();
     }

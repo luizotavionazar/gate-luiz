@@ -19,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class GoogleAuthService {
@@ -39,8 +41,10 @@ public class GoogleAuthService {
                 .orElse(null);
 
         if (identidadeExistente != null) {
+            Usuario usuario = identidadeExistente.getUsuario();
+            usuarioRepository.atualizarUltimoLogin(usuario.getId(), LocalDateTime.now());
             AuditoriaService.definirDetalhes("E-mail: " + googleUsuario.emailNormalizado());
-            return gerarRespostaLogin(identidadeExistente.getUsuario());
+            return gerarRespostaLogin(usuario);
         }
 
         if (usuarioRepository.existsByEmail(googleUsuario.emailNormalizado())) {
@@ -58,6 +62,7 @@ public class GoogleAuthService {
                 .email(googleUsuario.emailNormalizado())
                 .senhaHash(null)
                 .providerOrigem(ProviderExterno.GOOGLE)
+                .ultimoLogin(LocalDateTime.now())
                 .build());
 
         criarVinculoGoogle(novoUsuario, googleUsuario);

@@ -50,7 +50,14 @@ public class AdminUsuarioController {
                         u.id(),
                         u.nome(),
                         u.email(),
+                        u.telefone(),
                         u.dataCriacao(),
+                        u.dataAtualiza(),
+                        u.ultimoLogin(),
+                        u.emailVerificado(),
+                        u.telefoneVerificado(),
+                        u.possuiSenha(),
+                        u.googleVinculado(),
                         rolesPorUsuario.getOrDefault(u.id(), List.of())
                 ))
                 .toList();

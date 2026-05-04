@@ -6,5 +6,12 @@ public record UsuarioAuthResponse(
         Long id,
         String nome,
         String email,
-        LocalDateTime dataCriacao
+        String telefone,
+        LocalDateTime dataCriacao,
+        LocalDateTime dataAtualiza,
+        LocalDateTime ultimoLogin,
+        boolean emailVerificado,
+        boolean telefoneVerificado,
+        boolean possuiSenha,
+        boolean googleVinculado
 ) {}

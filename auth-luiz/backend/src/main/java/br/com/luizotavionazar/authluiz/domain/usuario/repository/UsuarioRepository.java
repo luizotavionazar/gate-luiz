@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
@@ -29,4 +30,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Usuario u SET u.emailPendente = :emailPendente WHERE u.id = :id")
     void atualizarEmailPendente(@Param("id") Integer id, @Param("emailPendente") String emailPendente);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.ultimoLogin = :ultimoLogin WHERE u.id = :id")
+    void atualizarUltimoLogin(@Param("id") Integer id, @Param("ultimoLogin") LocalDateTime ultimoLogin);
 }

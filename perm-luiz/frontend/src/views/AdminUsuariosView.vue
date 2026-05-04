@@ -11,6 +11,9 @@ const sucesso = ref('')
 const usuarioSelecionado = ref(null)
 const modalAberto = ref(false)
 
+const usuarioDetalhes = ref(null)
+const modalDetalhesAberto = ref(false)
+
 onMounted(async () => {
   carregando.value = true
   try {
@@ -71,9 +74,22 @@ async function recarregarUsuario() {
   if (atualizado) usuarioSelecionado.value = { ...atualizado }
 }
 
+function abrirDetalhes(usuario) {
+  usuarioDetalhes.value = usuario
+  modalDetalhesAberto.value = true
+}
+
+function fecharDetalhes() {
+  modalDetalhesAberto.value = false
+  usuarioDetalhes.value = null
+}
+
 function formatarData(data) {
   if (!data) return '—'
-  return new Date(data).toLocaleDateString('pt-BR')
+  return new Date(data).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  })
 }
 </script>
 
@@ -106,8 +122,9 @@ function formatarData(data) {
               <tr>
                 <th class="fw-semibold small">Nome</th>
                 <th class="fw-semibold small">Email</th>
-                <th class="fw-semibold small">Roles</th>
+                <th class="fw-semibold small">Telefone</th>
                 <th class="fw-semibold small">Cadastro</th>
+                <th class="fw-semibold small">Último login</th>
                 <th class="fw-semibold small"></th>
               </tr>
             </thead>
@@ -115,13 +132,13 @@ function formatarData(data) {
               <tr v-for="usuario in usuarios" :key="usuario.idUsuario">
                 <td class="small fw-semibold">{{ usuario.nome }}</td>
                 <td class="small text-muted">{{ usuario.email }}</td>
-                <td>
-                  <span v-if="usuario.roles.length === 0" class="text-muted small">sem roles</span>
-                  <span v-for="role in usuario.roles" :key="role.id"
-                        class="badge bg-dark me-1">{{ role.nome }}</span>
-                </td>
+                <td class="small text-muted">{{ usuario.telefone || '—' }}</td>
                 <td class="small text-muted">{{ formatarData(usuario.dataCriacao) }}</td>
+                <td class="small text-muted">{{ formatarData(usuario.ultimoLogin) }}</td>
                 <td>
+                  <button class="btn btn-outline-secondary btn-sm me-1" @click="abrirDetalhes(usuario)" title="Detalhes">
+                    <i class="bi bi-info-circle"></i>
+                  </button>
                   <button class="btn btn-outline-dark btn-sm" @click="abrirModal(usuario)">
                     <i class="bi bi-pencil me-1"></i>Editar roles
                   </button>
@@ -172,6 +189,53 @@ function formatarData(data) {
           </div>
           <div class="modal-footer">
             <button class="btn btn-dark btn-sm" @click="fecharModal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Modal detalhes do usuário -->
+    <div v-if="modalDetalhesAberto" class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h6 class="modal-title fw-semibold">Detalhes — {{ usuarioDetalhes?.nome }}</h6>
+            <button type="button" class="btn-close" @click="fecharDetalhes"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <div class="text-muted small mb-1">Última alteração</div>
+              <div class="small fw-semibold">{{ formatarData(usuarioDetalhes?.dataAtualiza) }}</div>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">Email verificado</span>
+                <span :class="usuarioDetalhes?.emailVerificado ? 'badge bg-success' : 'badge bg-danger'">
+                  {{ usuarioDetalhes?.emailVerificado ? 'Sim' : 'Não' }}
+                </span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">Telefone verificado</span>
+                <span v-if="!usuarioDetalhes?.telefone" class="badge bg-secondary">Sem telefone</span>
+                <span v-else :class="usuarioDetalhes?.telefoneVerificado ? 'badge bg-success' : 'badge bg-warning text-dark'">
+                  {{ usuarioDetalhes?.telefoneVerificado ? 'Sim' : 'Não' }}
+                </span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">Senha definida</span>
+                <span :class="usuarioDetalhes?.possuiSenha ? 'badge bg-success' : 'badge bg-secondary'">
+                  {{ usuarioDetalhes?.possuiSenha ? 'Sim' : 'Não' }}
+                </span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">Google vinculado</span>
+                <span :class="usuarioDetalhes?.googleVinculado ? 'badge bg-success' : 'badge bg-secondary'">
+                  {{ usuarioDetalhes?.googleVinculado ? 'Sim' : 'Não' }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-dark btn-sm" @click="fecharDetalhes">Fechar</button>
           </div>
         </div>
       </div>

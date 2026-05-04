@@ -75,7 +75,7 @@ public class AutenticacaoService {
         return CadastroResponse.from(usuario);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         String emailNormalizado = request.emailNormalizado();
 
@@ -89,6 +89,8 @@ public class AutenticacaoService {
         if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, MSG_CREDENCIAIS_INVALIDAS);
         }
+
+        usuarioRepository.atualizarUltimoLogin(usuario.getId(), LocalDateTime.now());
 
         String token = jwtService.gerarToken(usuario);
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),

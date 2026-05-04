@@ -7,6 +7,13 @@ public record UsuarioComRolesResponse(
         Long idUsuario,
         String nome,
         String email,
+        String telefone,
         LocalDateTime dataCriacao,
+        LocalDateTime dataAtualiza,
+        LocalDateTime ultimoLogin,
+        boolean emailVerificado,
+        boolean telefoneVerificado,
+        boolean possuiSenha,
+        boolean googleVinculado,
         List<RoleResponse> roles
 ) {}

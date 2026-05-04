@@ -1,5 +1,7 @@
 package br.com.luizotavionazar.authluiz.api.interno;
 
+import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
+import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/auth/interno")
@@ -18,6 +21,7 @@ import java.util.List;
 public class InternoController {
 
     private final UsuarioRepository usuarioRepository;
+    private final IdentidadeExternaRepository identidadeExternaRepository;
 
     @Value("${auth.service.key}")
     private String serviceKey;
@@ -27,8 +31,9 @@ public class InternoController {
         if (!serviceKey.equals(chave)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chave de serviço inválida!");
         }
+        Set<Integer> idsComGoogle = identidadeExternaRepository.findUsuarioIdsByProvider(ProviderExterno.GOOGLE);
         return usuarioRepository.findAll().stream()
-                .map(UsuarioInternoResponse::de)
+                .map(u -> UsuarioInternoResponse.de(u, idsComGoogle.contains(u.getId())))
                 .toList();
     }
 }

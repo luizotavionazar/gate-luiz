@@ -6,6 +6,7 @@ import br.com.luizotavionazar.permluiz.domain.auditoria.service.AuditoriaService
 import br.com.luizotavionazar.permluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.permluiz.domain.permissao.PermissaoRepository;
 import br.com.luizotavionazar.permluiz.domain.permissao.entity.Permissao;
+import br.com.luizotavionazar.permluiz.domain.role.RoleRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,7 @@ import java.util.List;
 public class AdminPermissaoController {
 
     private final PermissaoRepository permissaoRepository;
+    private final RoleRepository roleRepository;
     private final AdminVerificador adminVerificador;
 
     @GetMapping
@@ -82,6 +84,11 @@ public class AdminPermissaoController {
 
         Permissao permissao = permissaoRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Permissão não encontrada!"));
+
+        if (roleRepository.existsByPermissoesId(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Permissão está vinculada a um ou mais roles e não pode ser removida!");
+        }
+
         AuditoriaService.definirDetalhes("Permissão '" + permissao.getRecurso() + ":" + permissao.getAcao() + "' removida"
                 + (permissao.getDescricao() != null ? " — " + permissao.getDescricao() : ""));
         permissaoRepository.delete(permissao);
