@@ -146,6 +146,24 @@ Todas as mensagens de resposta da API devem terminar com `!`. Isso é um padrão
 
 A tabela `usuarioRole` usa `ON DELETE CASCADE` na FK para `role`. O `idUsuario` não tem FK para o banco do AuthLuiz (cross-database) — a integridade é garantida pela aplicação. Se novas tabelas forem criadas com FK para `role` ou `permissao`, garantir `ON DELETE CASCADE`.
 
+## Auditoria de Logs
+
+O sistema de auditoria registra automaticamente ações administrativas na tabela `log_auditoria` (banco do próprio serviço), capturando: `acao`, `categoria`, `idUsuario`, `ipOrigem`, `metodoHttp`, `uri`, `statusHttp` e `sucesso`.
+
+**Mecanismo:** anotação `@Auditavel` nos métodos de controller + `AuditoriaAspect` (`@Around`) que intercepta a chamada, extrai os dados do request via `RequestContextHolder` e do JWT via `SecurityContextHolder`, e persiste o log.
+
+**Categoria:** todas as ações do perm-luiz são `ATIVIDADE` — configuráveis via `AUDITORIA_ATIVIDADE=false`. Padrão: `true`.
+
+**Limpeza automática:** `AuditoriaLimpezaService` roda diariamente às 03:00 e exclui logs com `criadoEm < agora - AUDITORIA_RETENCAO_DIAS` (padrão: 90 dias). Requer `@EnableScheduling` — já ativo no `PermLuizApplication`.
+
+**Detalhes do log (`AuditoriaService.definirDetalhes`):**
+- Todos os endpoints do perm-luiz são autenticados (o `idUsuario` já identifica a conta via JWT), portanto os detalhes descrevem apenas a ação realizada — não inclua e-mail.
+- Padrão adotado: criar/deletar → nome/chave da entidade e descrição; atualizar → estado anterior e novo; atribuir/remover role de usuário → nome do role e id do usuário.
+
+**Adicionar nova ação auditada:**
+1. Adicionar valor ao enum `AcaoAuditoria`
+2. Anotar o método do controller: `@Auditavel(acao = AcaoAuditoria.X)`
+
 ## Centralização de Mensagens e Validações
 
 Mensagens de erro, textos de validação e lógicas de verificação repetidas devem ser definidas em um único local. Evite duplicar strings ou regras em múltiplos locais do projeto.

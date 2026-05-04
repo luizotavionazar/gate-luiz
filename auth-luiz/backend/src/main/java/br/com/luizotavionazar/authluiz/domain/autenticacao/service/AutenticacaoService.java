@@ -9,6 +9,7 @@ import br.com.luizotavionazar.authluiz.domain.autenticacao.event.UsuarioCadastra
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.ControleRecuperacaoSenhaRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenRecuperacaoSenhaRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.util.TokenUtils;
+import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
@@ -70,6 +71,7 @@ public class AutenticacaoService {
         eventPublisher.publishEvent(
                 new UsuarioCadastradoEvent(usuario.getId(), usuario.getNome(), usuario.getEmail(), tokenVerificacao));
 
+        AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
         return CadastroResponse.from(usuario);
     }
 
@@ -91,6 +93,7 @@ public class AutenticacaoService {
         String token = jwtService.gerarToken(usuario);
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                 ProviderExterno.GOOGLE);
+        AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
         return LoginResponse.from(usuario, temLoginGoogle, token, jwtService.getExpirationMinutes());
     }
 
@@ -149,6 +152,7 @@ public class AutenticacaoService {
             emailService.enviarRecuperacaoSenha(usuario.getNome(), usuario.getEmail(), tokenBruto);
         });
 
+        AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
         return mensagemGenericaRecuperacao();
     }
 
@@ -184,6 +188,7 @@ public class AutenticacaoService {
         token.setEncerradoEm(agora);
         tokenRecuperacaoSenhaRepository.saveAndFlush(token);
 
+        AuditoriaService.definirDetalhes("E-mail: " + usuario.getEmail());
         return new MensagemResponse("Senha redefinida com sucesso");
     }
 
@@ -226,7 +231,7 @@ public class AutenticacaoService {
             long retryAfterSeconds = Duration.between(agora, controle.getBloqueadoAte()).toSeconds();
             long minutosRestantes = Math.max(1, (retryAfterSeconds + 59) / 60);
             throw new ExcecaoLimiteTentativas(
-                    "Foram realizadasd muitas solicitações de recuperação a partir deste dispositivo ou rede. Tente novamente em cerca de "
+                    "Foram realizadas muitas solicitações de recuperação a partir deste dispositivo ou rede. Tente novamente em cerca de "
                             + minutosRestantes + " minuto(s)!",
                     retryAfterSeconds);
         }
@@ -251,7 +256,7 @@ public class AutenticacaoService {
             long retryAfterSeconds = Duration.between(agora, bloqueadoAte).toSeconds();
             long minutosRestantes = Math.max(1, (retryAfterSeconds + 59) / 60);
             throw new ExcecaoLimiteTentativas(
-                    "Foram realizadasd muitas solicitações de recuperação a partir deste dispositivo ou rede. Tente novamente em cerca de "
+                    "Foram realizadas muitas solicitações de recuperação a partir deste dispositivo ou rede. Tente novamente em cerca de "
                             + minutosRestantes + " minuto(s)!",
                     retryAfterSeconds);
         }

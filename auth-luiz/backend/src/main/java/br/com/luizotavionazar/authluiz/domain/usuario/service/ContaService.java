@@ -15,6 +15,7 @@ import br.com.luizotavionazar.authluiz.domain.autenticacao.service.PoliticaSenha
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.TokenConfirmacaoService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
+import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
@@ -68,8 +69,10 @@ public class ContaService {
                     "Confirme seu e-mail antes de alterar o nome!");
         }
 
+        String nomeAnterior = usuario.getNome();
         usuario.setNome(request.nomeNormalizado());
         usuarioRepository.save(usuario);
+        AuditoriaService.definirDetalhes("Nome alterado de '" + nomeAnterior + "' para '" + request.nomeNormalizado() + "'");
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                 ProviderExterno.GOOGLE);
         return ContaResponse.from(usuario, temLoginGoogle);
@@ -87,6 +90,11 @@ public class ContaService {
         }
 
         String emailNormalizado = request.emailNormalizado();
+
+        if (emailNormalizado.equals(usuario.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O novo e-mail deve ser diferente do e-mail atual!");
+        }
 
         if (usuarioRepository.existsByEmailAndIdNot(emailNormalizado, usuario.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "E-mail já cadastrado!");
@@ -109,6 +117,7 @@ public class ContaService {
 
         String token = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, emailNormalizado, ip);
         emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), emailNormalizado, token);
+        AuditoriaService.definirDetalhes("E-mail alterado de '" + usuario.getEmail() + "' para '" + emailNormalizado + "'");
 
         return ContaResponse.from(usuario, temLoginGoogle);
     }
@@ -131,9 +140,12 @@ public class ContaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Telefone já cadastrado!");
         }
 
+        String telefoneAnterior = usuario.getTelefone() != null ? usuario.getTelefone() : "(nenhum)";
+        String telefoneNovo = telefoneNormalizado != null ? telefoneNormalizado : "(removido)";
         usuario.setTelefone(telefoneNormalizado);
         usuario.setTelefoneVerificado(false);
         usuarioRepository.save(usuario);
+        AuditoriaService.definirDetalhes("Telefone alterado de '" + telefoneAnterior + "' para '" + telefoneNovo + "'");
 
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                 ProviderExterno.GOOGLE);
@@ -169,12 +181,14 @@ public class ContaService {
             usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
             usuarioRepository.save(usuario);
             tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), LocalDateTime.now());
+            AuditoriaService.definirDetalhes("Senha alterada");
             return new MensagemResponse("Senha alterada com sucesso!");
         }
 
         usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
         usuarioRepository.save(usuario);
         tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), LocalDateTime.now());
+        AuditoriaService.definirDetalhes("Senha definida pela primeira vez");
         return new MensagemResponse("Senha definida com sucesso!");
     }
 

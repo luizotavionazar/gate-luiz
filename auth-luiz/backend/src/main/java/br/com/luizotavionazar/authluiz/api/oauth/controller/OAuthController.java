@@ -4,6 +4,9 @@ import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
 import br.com.luizotavionazar.authluiz.api.oauth.dto.DesvincularGoogleRequest;
 import br.com.luizotavionazar.authluiz.api.oauth.dto.GoogleLoginRequest;
+import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
+import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
+import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.service.GoogleAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +26,13 @@ public class OAuthController {
 
     private final GoogleAuthService googleAuthService;
 
+    @Auditavel(acao = AcaoAuditoria.LOGIN_GOOGLE, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/google")
     public ResponseEntity<LoginResponse> autenticarComGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         return ResponseEntity.ok(googleAuthService.autenticar(request));
     }
 
+    @Auditavel(acao = AcaoAuditoria.VINCULAR_GOOGLE)
     @PostMapping("/google/vincular")
     public ResponseEntity<ContaResponse> vincularGoogle(
             @AuthenticationPrincipal Jwt jwt,
@@ -37,6 +42,7 @@ public class OAuthController {
         return ResponseEntity.ok(googleAuthService.vincular(idUsuario, request));
     }
 
+    @Auditavel(acao = AcaoAuditoria.DESVINCULAR_GOOGLE)
     @DeleteMapping("/google/vincular")
     public ResponseEntity<ContaResponse> desvincularGoogle(
             @AuthenticationPrincipal Jwt jwt,

@@ -36,12 +36,24 @@ src/main/java/.../permluiz/
 │       └── MeController             GET /me/roles
 │
 ├── config/
+│   ├── auditoria/
+│   │   ├── Auditavel                @interface — anota métodos de controller a auditar
+│   │   └── AuditoriaAspect         @Aspect — intercepta @Auditavel, extrai IP/userId e persiste log
 │   └── security/
 │       ├── SecurityConfig           Regras de autorização, CORS, OAuth2 resource server (JWKS)
 │       ├── AdminVerificador         Verifica admin mestre; auto-promove 1º usuário autenticado
 │       └── JsonAuthenticationEntryPoint  Resposta JSON para 401
 │
 ├── domain/
+│   ├── auditoria/
+│   │   ├── entity/   LogAuditoria         Registro de auditoria: ação, categoria, IP, userId, resultado
+│   │   ├── enums/
+│   │   │   ├── AcaoAuditoria             ROLE_CRIADA, PERMISSAO_CRIADA, ROLE_USUARIO_ATRIBUIDA...
+│   │   │   └── CategoriaAuditoria        ATIVIDADE (configurável via AUDITORIA_ATIVIDADE)
+│   │   ├── repository/ LogAuditoriaRepository
+│   │   └── service/
+│   │       ├── AuditoriaService          Persiste registros de log
+│   │       └── AuditoriaLimpezaService   @Scheduled (03:00) — exclui logs mais antigos que retencao-dias
 │   ├── configuracao/
 │   │   ├── entity/  ConfiguracaoAplicacao   Singleton: idAdminMestre (null = sem admin ainda)
 │   │   └── ConfiguracaoAplicacaoRepository
@@ -67,7 +79,8 @@ src/main/java/.../permluiz/
 
 | Arquivo                  | Conteúdo                                                                       |
 |--------------------------|--------------------------------------------------------------------------------|
-| `V1__schema_inicial.sql` | Schema completo: `configuracaoAplicacao`, `role`, `permissao`, `rolePermissao`, `usuarioRole` |
+| `V1__schema_inicial.sql`     | Schema completo: `configuracaoAplicacao`, `role`, `permissao`, `rolePermissao`, `usuarioRole` |
+| `V2__log_auditoria.sql`      | Cria tabela `log_auditoria` com índices em `idUsuario`, `criadoEm` e `acao` |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -82,6 +95,8 @@ SPRING_DATASOURCE_PASSWORD=...
 AUTH_LUIZ_JWKS_URI=...             # http://localhost:8080/auth/.well-known/jwks.json
 AUTH_LUIZ_BASE_URL=...             # http://localhost:8080
 AUTH_LUIZ_SERVICE_KEY=...          # chave compartilhada com o AuthLuiz (mesma em ambos)
+AUDITORIA_ATIVIDADE=true           # habilita logs de atividade de admin (padrão: true)
+AUDITORIA_RETENCAO_DIAS=90         # dias de retenção dos logs antes da limpeza automática (padrão: 90)
 ```
 
 ## Rodando

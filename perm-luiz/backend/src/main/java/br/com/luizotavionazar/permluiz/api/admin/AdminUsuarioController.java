@@ -1,6 +1,9 @@
 package br.com.luizotavionazar.permluiz.api.admin;
 
+import br.com.luizotavionazar.permluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.permluiz.config.security.AdminVerificador;
+import br.com.luizotavionazar.permluiz.domain.auditoria.service.AuditoriaService;
+import br.com.luizotavionazar.permluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.permluiz.domain.role.RoleRepository;
 import br.com.luizotavionazar.permluiz.domain.role.entity.Role;
 import br.com.luizotavionazar.permluiz.domain.usuariorole.UsuarioRoleRepository;
@@ -61,6 +64,7 @@ public class AdminUsuarioController {
                 .toList();
     }
 
+    @Auditavel(acao = AcaoAuditoria.ROLE_USUARIO_ATRIBUIDA)
     @PostMapping("/{idUsuario}/roles/{idRole}")
     ResponseEntity<Map<String, Object>> atribuirRole(@AuthenticationPrincipal Jwt jwt,
                                                      @PathVariable Long idUsuario,
@@ -80,11 +84,13 @@ public class AdminUsuarioController {
         usuarioRole.setAtribuidoPor(adminVerificador.extrairIdUsuario(jwt));
         usuarioRoleRepository.save(usuarioRole);
 
+        AuditoriaService.definirDetalhes("Role '" + role.getNome() + "' atribuído ao usuário #" + idUsuario);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 Map.of("mensagem", "Role atribuído com sucesso!", "role", role.getNome())
         );
     }
 
+    @Auditavel(acao = AcaoAuditoria.ROLE_USUARIO_REMOVIDA)
     @DeleteMapping("/{idUsuario}/roles/{idRole}")
     ResponseEntity<Void> removerRole(@AuthenticationPrincipal Jwt jwt,
                                      @PathVariable Long idUsuario,
@@ -94,6 +100,9 @@ public class AdminUsuarioController {
         if (!usuarioRoleRepository.existsById(new UsuarioRoleId(idUsuario, idRole))) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não possui esse role!");
         }
+        Role role = roleRepository.findById(idRole)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role não encontrado!"));
+        AuditoriaService.definirDetalhes("Role '" + role.getNome() + "' removido do usuário #" + idUsuario);
         usuarioRoleRepository.deleteByIdUsuarioAndIdRole(idUsuario, idRole);
         return ResponseEntity.noContent().build();
     }

@@ -1,6 +1,7 @@
 package br.com.luizotavionazar.authluiz.domain.autenticacao.service;
 
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
+import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenConfirmacao;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
@@ -38,6 +39,10 @@ public class ConfirmacaoService {
             usuarioRepository.save(usuario);
         }
 
+        String emailConfirmado = token.getTipo() == TipoTokenConfirmacao.ALTERACAO_EMAIL
+                ? token.getEmailDestino()
+                : usuario.getEmail();
+        AuditoriaService.definirDetalhes("E-mail: " + emailConfirmado);
         tokenConfirmacaoService.confirmar(token);
     }
 

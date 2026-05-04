@@ -105,7 +105,7 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | POST | `/auth/recuperacao/redefinir` | Pública | Redefine senha com token válido |
 | GET | `/auth/me` | JWT | Retorna dados da conta autenticada |
 | PATCH | `/auth/me/nome` | JWT | Atualiza nome do usuário |
-| PATCH | `/auth/me/email` | JWT | Atualiza e-mail (bloqueado para contas com Google vinculado; sempre envia e-mail de confirmação para o novo endereço e salva em `emailPendente`) |
+| PATCH | `/auth/me/email` | JWT | Atualiza e-mail (bloqueado para contas com Google vinculado; novo e-mail deve ser diferente do atual; sempre envia e-mail de confirmação para o novo endereço e salva em `emailPendente`) |
 | PATCH | `/auth/me/senha` | JWT | Atualiza ou define senha (bloqueado se e-mail não verificado) |
 | PATCH | `/auth/me/telefone` | JWT | Atualiza ou remove telefone (null remove; sempre define `telefoneVerificado=false`; bloqueado se e-mail não verificado) |
 | DELETE | `/auth/me` | JWT | Exclui a conta do usuário autenticado (sempre permitido, independente do status de verificação) |
@@ -190,6 +190,27 @@ A entidade `Usuario` possui os campos `telefone` (VARCHAR 20, nullable, único, 
 - Recuperação: se `telefoneVerificado = true`, oferecer link/código via WhatsApp (fallback SMS).
 - Credenciais do provider devem ser adicionadas à `configuracaoAplicacao` e criptografadas como o SMTP.
 - Envio sempre `@Async`, seguindo o padrão do `EmailService`.
+
+## Auditoria de Logs
+
+O sistema de auditoria registra automaticamente ações dos usuários na tabela `log_auditoria` (banco do próprio serviço), capturando: `acao`, `categoria`, `idUsuario`, `ipOrigem`, `metodoHttp`, `uri`, `statusHttp` e `sucesso`.
+
+**Mecanismo:** anotação `@Auditavel` nos métodos de controller + `AuditoriaAspect` (`@Around`) que intercepta a chamada, extrai os dados do request via `RequestContextHolder` e do JWT via `SecurityContextHolder`, e persiste o log. Em caso de exceção, registra `sucesso=false` e substitui a ação conforme o mapa de falha (ex: `LOGIN_SUCESSO` → `LOGIN_FALHA`).
+
+**Categorias:**
+- `SEGURANCA` — sempre registrado (login, cadastro, senha, conta deletada, OAuth). Não tem toggle.
+- `ATIVIDADE` — configurável via `AUDITORIA_ATIVIDADE=false` (nome, e-mail, telefone, vínculos Google). Padrão: `true`.
+
+**Limpeza automática:** `AuditoriaLimpezaService` roda diariamente às 03:00 e exclui logs com `criadoEm < agora - AUDITORIA_RETENCAO_DIAS` (padrão: 90 dias).
+
+**Detalhes do log (`AuditoriaService.definirDetalhes`):**
+- Endpoints **anônimos** (login, cadastro, recuperação de senha, confirmação de e-mail, login Google): incluir `"E-mail: x@y.com"` — é a única forma de identificar a conta, pois `idUsuario` é null.
+- Endpoints **autenticados**: descrever apenas a ação (ex: `"Nome alterado de 'X' para 'Y'"`). O `idUsuario` já identifica a conta via JWT.
+- Exceção: `ALTERAR_EMAIL_SOLICITADO` mantém `"E-mail alterado de 'old' para 'new'"` porque os dois endereços são a informação relevante da ação.
+
+**Adicionar nova ação auditada:**
+1. Adicionar valor ao enum `AcaoAuditoria` (e opcionalmente ao mapa de falha no `AuditoriaAspect`)
+2. Anotar o método do controller: `@Auditavel(acao = AcaoAuditoria.X, categoria = CategoriaAuditoria.Y)`
 
 ## Centralização de Mensagens e Validações
 

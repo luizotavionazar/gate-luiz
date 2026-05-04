@@ -9,6 +9,18 @@
       "name": "auth.luiz.service-key",
       "type": "java.lang.String",
       "description": "Chave compartilhada com o AuthLuiz para autenticar chamadas server-to-server via header X-Service-Key."
+    },
+    {
+      "name": "auditoria.atividade",
+      "type": "java.lang.Boolean",
+      "description": "Habilita logs de auditoria de atividade (roles, permissões). Logs de segurança são sempre registrados.",
+      "defaultValue": true
+    },
+    {
+      "name": "auditoria.retencao-dias",
+      "type": "java.lang.Integer",
+      "description": "Quantidade de dias para reter registros de auditoria antes da exclusão automática diária.",
+      "defaultValue": 90
     }
   ]
 }

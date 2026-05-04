@@ -7,6 +7,9 @@ import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.RecuperacaoSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.RedefinirSenhaRequest;
+import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
+import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
+import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.AutenticacaoService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,6 +25,7 @@ public class AutenticacaoController {
 
     private final AutenticacaoService autenticacaoService;
 
+    @Auditavel(acao = AcaoAuditoria.CADASTRO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/cadastro")
     public ResponseEntity<CadastroResponse> cadastrar(
             @Valid @RequestBody CadastroRequest request,
@@ -31,11 +35,13 @@ public class AutenticacaoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Auditavel(acao = AcaoAuditoria.LOGIN_SUCESSO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(autenticacaoService.login(request));
     }
 
+    @Auditavel(acao = AcaoAuditoria.RECUPERACAO_SENHA_INICIADA, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/recuperacao/iniciar")
     public ResponseEntity<MensagemResponse> iniciarRecuperacaoSenha(
             @Valid @RequestBody RecuperacaoSenhaRequest request,
@@ -51,6 +57,7 @@ public class AutenticacaoController {
         return ResponseEntity.ok(autenticacaoService.validarTokenRecuperacao(token));
     }
 
+    @Auditavel(acao = AcaoAuditoria.RECUPERACAO_SENHA_REDEFINIDA, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/recuperacao/redefinir")
     public ResponseEntity<MensagemResponse> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request) {
         return ResponseEntity.ok(autenticacaoService.redefinirSenha(request));

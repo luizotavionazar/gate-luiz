@@ -5,6 +5,7 @@ import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
 import br.com.luizotavionazar.authluiz.api.oauth.dto.DesvincularGoogleRequest;
 import br.com.luizotavionazar.authluiz.api.oauth.dto.GoogleLoginRequest;
 import br.com.luizotavionazar.authluiz.config.security.JwtService;
+import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.IdentidadeExterna;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
@@ -38,6 +39,7 @@ public class GoogleAuthService {
                 .orElse(null);
 
         if (identidadeExistente != null) {
+            AuditoriaService.definirDetalhes("E-mail: " + googleUsuario.emailNormalizado());
             return gerarRespostaLogin(identidadeExistente.getUsuario());
         }
 
@@ -59,6 +61,7 @@ public class GoogleAuthService {
                 .build());
 
         criarVinculoGoogle(novoUsuario, googleUsuario);
+        AuditoriaService.definirDetalhes("E-mail: " + googleUsuario.emailNormalizado());
         return gerarRespostaLogin(novoUsuario);
     }
 

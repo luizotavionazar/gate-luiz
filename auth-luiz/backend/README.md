@@ -1,10 +1,10 @@
 # AuthLuiz — Backend
 
-API REST de autenticação construída com Spring Boot 3 e Java 21. Stateless, baseada em JWT, com suporte a OAuth via Google, confirmação de e-mail, recuperação de senha e setup inicial guiado.
+API REST de autenticação construída com Spring Boot 4 e Java 21. Stateless, baseada em JWT, com suporte a OAuth via Google, confirmação de e-mail, recuperação de senha e setup inicial guiado.
 
 ## Stack
 
-- **Java 21** + **Spring Boot 3**
+- **Java 21** + **Spring Boot 4**
 - **Spring Security** — OAuth2 Resource Server (JWT), stateless
 - **PostgreSQL** + **Flyway** — banco relacional com migrações versionadas
 - **Argon2** — hash de senhas (via Spring Security)
@@ -48,6 +48,9 @@ src/main/java/.../authluiz/
 │                       ConfiguracaoEmailPublicaResponse
 │
 ├── config/
+│   ├── auditoria/
+│   │   ├── Auditavel                    @interface — anota métodos de controller a auditar
+│   │   └── AuditoriaAspect             @Aspect — intercepta @Auditavel, extrai IP/userId e persiste log
 │   ├── security/
 │   │   ├── SecurityConfig               Regras de autorização, CORS, OAuth2 resource server
 │   │   ├── SecurityBeansConfig          Beans: PasswordEncoder (Argon2), RSAPublicKey/RSAPrivateKey, JwtEncoder/Decoder (RS256)
@@ -59,6 +62,16 @@ src/main/java/.../authluiz/
 │       └── SetupFilter                  Intercepta requisições e redireciona ao setup se não concluído
 │
 ├── domain/                          Regras de negócio e entidades
+│   │
+│   ├── auditoria/
+│   │   ├── entity/   LogAuditoria         Registro de auditoria: ação, categoria, IP, userId, resultado
+│   │   ├── enums/
+│   │   │   ├── AcaoAuditoria             LOGIN_SUCESSO, LOGIN_FALHA, CADASTRO, ALTERAR_SENHA...
+│   │   │   └── CategoriaAuditoria        SEGURANCA (sempre ativo) | ATIVIDADE (configurável)
+│   │   ├── repository/ LogAuditoriaRepository
+│   │   └── service/
+│   │       ├── AuditoriaService          Persiste registros de log
+│   │       └── AuditoriaLimpezaService   @Scheduled (03:00) — exclui logs mais antigos que retencao-dias
 │   │
 │   ├── autenticacao/
 │   │   ├── entity/
@@ -120,6 +133,7 @@ src/main/java/.../authluiz/
 | `V1__schema_inicial.sql`     | Schema completo: `usuario`, `tokenRecuperacaoSenha`, `controleRecuperacaoSenha`, `configuracaoAplicacao`, `identidadeExterna`, `tokenConfirmacao`, `controleAlteracaoEmail` — com todos os `ON DELETE CASCADE` |
 | `V2__adicionar_telefone_usuario.sql` | Adiciona colunas `telefone` (VARCHAR 20, nullable) e `telefoneVerificado` (boolean) à tabela `usuario` |
 | `V3__unique_telefone_usuario.sql`    | Adiciona constraint `uq_usuario_telefone` — unicidade de telefone (NULLs múltiplos permitidos pelo PostgreSQL) |
+| `V4__log_auditoria.sql`             | Cria tabela `log_auditoria` com índices em `idUsuario`, `criadoEm` e `acao` |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -137,6 +151,8 @@ JWT_RSA_PUBLIC_KEY=...            # chave pública RSA em base64 (X.509)
 JWT_EXPIRATION_MINUTES=120
 GOOGLE_OAUTH_CLIENT_ID=...        # client ID do Google Cloud Console
 AUTH_LUIZ_SERVICE_KEY=...         # chave compartilhada com o PermLuiz para chamadas internas
+AUDITORIA_ATIVIDADE=true          # habilita logs de atividade (padrão: true); logs de segurança sempre ativos
+AUDITORIA_RETENCAO_DIAS=90        # dias de retenção dos logs antes da limpeza automática (padrão: 90)
 ```
 
 > Gere o par de chaves RSA executando `GerarChavesRSA.java` (disponível na raiz do backend). Consulte `backend/.env.example` para o procedimento completo.
@@ -171,7 +187,7 @@ docker compose -f ../compose-dev.yaml up -d
 | POST        | `/auth/recuperacao/redefinir`      | Pública      | Redefine senha com token válido                    |
 | GET         | `/auth/me`                         | JWT          | Dados da conta autenticada                         |
 | PATCH       | `/auth/me/nome`                    | JWT          | Atualiza nome                                      |
-| PATCH       | `/auth/me/email`                   | JWT          | Solicita alteração de e-mail (sempre envia confirmação) |
+| PATCH       | `/auth/me/email`                   | JWT          | Solicita alteração de e-mail (novo deve diferir do atual; sempre envia confirmação) |
 | PATCH       | `/auth/me/senha`                   | JWT          | Altera ou define senha                             |
 | PATCH       | `/auth/me/telefone`                | JWT          | Atualiza ou remove telefone (null remove; sempre define telefoneVerificado=false) |
 | DELETE      | `/auth/me`                         | JWT          | Exclui a conta                                     |

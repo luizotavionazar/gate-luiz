@@ -1,0 +1,23 @@
+package br.com.luizotavionazar.authluiz.domain.auditoria.enums;
+
+public enum AcaoAuditoria {
+
+    // SEGURANCA
+    LOGIN_SUCESSO,
+    LOGIN_FALHA,
+    CADASTRO,
+    RECUPERACAO_SENHA_INICIADA,
+    RECUPERACAO_SENHA_REDEFINIDA,
+    EMAIL_CONFIRMADO,
+    ALTERAR_SENHA,
+    CONTA_DELETADA,
+    LOGIN_GOOGLE,
+    LOGIN_GOOGLE_FALHA,
+
+    // ATIVIDADE
+    ALTERAR_NOME,
+    ALTERAR_EMAIL_SOLICITADO,
+    ALTERAR_TELEFONE,
+    VINCULAR_GOOGLE,
+    DESVINCULAR_GOOGLE
+}

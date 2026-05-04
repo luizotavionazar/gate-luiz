@@ -7,6 +7,9 @@ import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarTelefoneRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
+import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
+import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
+import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
 import br.com.luizotavionazar.authluiz.domain.permluiz.PermLuizService;
 import br.com.luizotavionazar.authluiz.domain.usuario.service.ContaService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,6 +47,7 @@ public class ContaController {
         return ResponseEntity.ok(contaService.obterMinhaConta(idUsuario));
     }
 
+    @Auditavel(acao = AcaoAuditoria.ALTERAR_NOME)
     @PatchMapping("/nome")
     public ResponseEntity<ContaResponse> atualizarNome(
             @AuthenticationPrincipal Jwt jwt,
@@ -53,6 +57,7 @@ public class ContaController {
         return ResponseEntity.ok(contaService.atualizarNome(idUsuario, request));
     }
 
+    @Auditavel(acao = AcaoAuditoria.ALTERAR_EMAIL_SOLICITADO)
     @PatchMapping("/email")
     public ResponseEntity<ContaResponse> atualizarEmail(
             @AuthenticationPrincipal Jwt jwt,
@@ -63,6 +68,7 @@ public class ContaController {
         return ResponseEntity.ok(contaService.atualizarEmail(idUsuario, request, httpRequest.getRemoteAddr()));
     }
 
+    @Auditavel(acao = AcaoAuditoria.ALTERAR_SENHA, categoria = CategoriaAuditoria.SEGURANCA)
     @PatchMapping("/senha")
     public ResponseEntity<MensagemResponse> atualizarSenha(
             @AuthenticationPrincipal Jwt jwt,
@@ -72,6 +78,7 @@ public class ContaController {
         return ResponseEntity.ok(contaService.atualizarSenha(idUsuario, request));
     }
 
+    @Auditavel(acao = AcaoAuditoria.ALTERAR_TELEFONE)
     @PatchMapping("/telefone")
     public ResponseEntity<ContaResponse> atualizarTelefone(
             @AuthenticationPrincipal Jwt jwt,
@@ -81,6 +88,7 @@ public class ContaController {
         return ResponseEntity.ok(contaService.atualizarTelefone(idUsuario, request));
     }
 
+    @Auditavel(acao = AcaoAuditoria.CONTA_DELETADA, categoria = CategoriaAuditoria.SEGURANCA)
     @DeleteMapping
     public ResponseEntity<Void> deletarConta(
             @AuthenticationPrincipal Jwt jwt,
