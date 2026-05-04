@@ -86,8 +86,8 @@ npm run preview  # pré-visualização do build de produção
 
 - `services/api.js` — Instância Axios apontando para o PermLuiz com injeção de Bearer token e logout automático em 401.
 - `services/autenticacaoService.js` — Armazenamento e leitura do JWT (obtido via AuthLuiz diretamente).
-- `router/index.js` — Guards: redireciona para `/setup` se nenhum admin estiver configurado (`adminConfigurado: false`); exige autenticação nas rotas com `requiresAuth`.
-- `main.js` — lê o fragment `#token=<jwt>` antes do mount, salva sessão via `salvarSessaoDoFragment()`, e limpa a URL com `history.replaceState`. Após o mount, redireciona para `/admin/roles`.
+- `router/index.js` — Guards: redireciona para `/setup` se nenhum admin estiver configurado (`adminConfigurado: false`); exige autenticação nas rotas com `requiresAuth`. A rota `/` redireciona para `/admin/usuarios`.
+- `main.js` — lê o fragment `#token=<jwt>` antes do mount, salva sessão via `salvarSessaoDoFragment()`, e limpa a URL com `history.replaceState`. Após o mount, redireciona para `/admin/usuarios`.
 - `views/` — Um Vue SFC por página (`Setup`, `SemAcesso`, `MinhaConta`, `AdminRoles`, `AdminPermissoes`, `AdminUsuarios`). Não há `LoginView` — o login é feito no AuthLuiz.
 - `nginx.conf` — proxy reverso: `/me/**`, `/admin/**` e `/setup/**` são encaminhados via `proxy_pass` para `http://permluiz-backend:8080`. Isso permite que o AuthLuiz chame `http://localhost:81/me/admin` sem apontar diretamente à porta 8081.
 - Interface usa Bootstrap 5 + Bootstrap Icons.

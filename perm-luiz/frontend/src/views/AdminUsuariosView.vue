@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
 
 const usuarios = ref([])
@@ -84,6 +84,41 @@ function fecharDetalhes() {
   usuarioDetalhes.value = null
 }
 
+const sortColuna = ref(null)
+const sortDirecao = ref('asc')
+
+const usuariosOrdenados = computed(() => {
+  if (!sortColuna.value) return usuarios.value
+  return [...usuarios.value].sort((a, b) => {
+    let va = a[sortColuna.value]
+    let vb = b[sortColuna.value]
+    if (sortColuna.value === 'dataCriacao' || sortColuna.value === 'ultimoLogin') {
+      va = va ? new Date(va).getTime() : -Infinity
+      vb = vb ? new Date(vb).getTime() : -Infinity
+    } else {
+      va = (va || '').toLowerCase()
+      vb = (vb || '').toLowerCase()
+    }
+    if (va < vb) return sortDirecao.value === 'asc' ? -1 : 1
+    if (va > vb) return sortDirecao.value === 'asc' ? 1 : -1
+    return 0
+  })
+})
+
+function ordenarPor(coluna) {
+  if (sortColuna.value === coluna) {
+    sortDirecao.value = sortDirecao.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortColuna.value = coluna
+    sortDirecao.value = 'asc'
+  }
+}
+
+function iconeOrdenacao(coluna) {
+  if (sortColuna.value !== coluna) return 'bi-arrow-down-up'
+  return sortDirecao.value === 'asc' ? 'bi-arrow-up' : 'bi-arrow-down'
+}
+
 function formatarData(data) {
   if (!data) return '—'
   return new Date(data).toLocaleString('pt-BR', {
@@ -120,16 +155,22 @@ function formatarData(data) {
           <table class="table table-hover align-middle mb-0">
             <thead class="table-dark">
               <tr>
-                <th class="fw-semibold small">Nome</th>
+                <th class="fw-semibold small" style="cursor:pointer;user-select:none" @click="ordenarPor('nome')">
+                  Nome <i :class="['bi', iconeOrdenacao('nome'), 'ms-1']"></i>
+                </th>
                 <th class="fw-semibold small">Email</th>
                 <th class="fw-semibold small">Telefone</th>
-                <th class="fw-semibold small">Cadastro</th>
-                <th class="fw-semibold small">Último login</th>
+                <th class="fw-semibold small" style="cursor:pointer;user-select:none" @click="ordenarPor('dataCriacao')">
+                  Cadastro <i :class="['bi', iconeOrdenacao('dataCriacao'), 'ms-1']"></i>
+                </th>
+                <th class="fw-semibold small" style="cursor:pointer;user-select:none" @click="ordenarPor('ultimoLogin')">
+                  Último login <i :class="['bi', iconeOrdenacao('ultimoLogin'), 'ms-1']"></i>
+                </th>
                 <th class="fw-semibold small"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="usuario in usuarios" :key="usuario.idUsuario">
+              <tr v-for="usuario in usuariosOrdenados" :key="usuario.idUsuario">
                 <td class="small fw-semibold">{{ usuario.nome }}</td>
                 <td class="small text-muted">{{ usuario.email }}</td>
                 <td class="small text-muted">{{ usuario.telefone || '—' }}</td>

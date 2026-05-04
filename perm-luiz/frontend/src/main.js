@@ -13,7 +13,7 @@ const hash = window.location.hash
 if (hash.startsWith('#token=')) {
   salvarSessaoDoFragment(hash.slice('#token='.length))
   history.replaceState(null, '', window.location.pathname + window.location.search)
-  redirecionarAposMount = '/admin/roles'
+  redirecionarAposMount = '/admin/usuarios'
 }
 
 createApp(App)

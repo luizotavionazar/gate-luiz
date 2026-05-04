@@ -8,7 +8,7 @@ import AdminUsuariosView from '../views/AdminUsuariosView.vue'
 import { getToken, isTokenExpired, logout } from '../services/autenticacaoService'
 
 const routes = [
-  { path: '/', redirect: '/admin/roles' },
+  { path: '/', redirect: '/admin/usuarios' },
   { path: '/setup', name: 'setup', component: SetupView },
   { path: '/sem-acesso', name: 'sem-acesso', component: SemAcessoView },
   { path: '/conta', name: 'conta', component: MinhaContaView, meta: { requiresAuth: true } },
