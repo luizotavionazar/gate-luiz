@@ -8,6 +8,7 @@ import br.com.luizotavionazar.permluiz.domain.permissao.PermissaoRepository;
 import br.com.luizotavionazar.permluiz.domain.permissao.entity.Permissao;
 import br.com.luizotavionazar.permluiz.domain.role.RoleRepository;
 import br.com.luizotavionazar.permluiz.domain.role.entity.Role;
+import br.com.luizotavionazar.permluiz.domain.usuariorole.UsuarioRoleRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ public class AdminRoleController {
 
     private final RoleRepository roleRepository;
     private final PermissaoRepository permissaoRepository;
+    private final UsuarioRoleRepository usuarioRoleRepository;
     private final AdminVerificador adminVerificador;
 
     @GetMapping
@@ -83,6 +85,11 @@ public class AdminRoleController {
 
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role não encontrado!"));
+
+        if (usuarioRoleRepository.existsByIdRole(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Role está vinculado a um ou mais usuários e não pode ser removido!");
+        }
+
         AuditoriaService.definirDetalhes("Role '" + role.getNome() + "' removido"
                 + (role.getDescricao() != null ? " — " + role.getDescricao() : ""));
         roleRepository.delete(role);
