@@ -178,7 +178,7 @@ docker compose -f ../compose-dev.yaml up -d
 | Método      | Caminho                            | Auth         | Descrição                                          |
 |-------------|------------------------------------|--------------|----------------------------------------------------|
 | POST        | `/auth/cadastro`                   | Pública      | Cadastro com e-mail e senha                        |
-| POST        | `/auth/login`                      | Pública      | Login local, retorna JWT                           |
+| POST        | `/auth/login`                      | Pública      | Login local (e-mail ou telefone + senha), retorna JWT |
 | POST        | `/auth/oauth/google`               | Pública      | Login/cadastro via Google (409 se e-mail já existe)|
 | POST        | `/auth/oauth/google/vincular`      | JWT          | Vincula Google à conta (e-mail Google = e-mail conta) |
 | DELETE      | `/auth/oauth/google/vincular`      | JWT          | Desvincula Google (exige senha definida; bloqueado para contas criadas via Google) |

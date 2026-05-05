@@ -1,18 +1,24 @@
 package br.com.luizotavionazar.authluiz.api.autenticacao.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public record LoginRequest(
 
-        @NotBlank(message = "E-mail é obrigatório")
-        @Email(message = "E-mail inválido")
-        String email,
+        @NotBlank(message = "E-mail ou telefone é obrigatório")
+        String identificador,
 
         @NotBlank(message = "Senha é obrigatória")
         String senha
 ) {
-    public String emailNormalizado() {
-        return email == null ? null : email.trim().toLowerCase();
+    public boolean isEmail() {
+        return identificador != null && identificador.contains("@");
+    }
+
+    public String identificadorNormalizado() {
+        if (identificador == null) return null;
+        String id = identificador.trim();
+        if (isEmail()) return id.toLowerCase();
+        String tel = id.replaceAll("[\\s().\\-]", "");
+        return tel.startsWith("+") ? tel : "+" + tel;
     }
 }

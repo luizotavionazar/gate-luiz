@@ -16,13 +16,13 @@
 
         <div class="position-relative text-center my-4">
           <hr class="my-0" />
-          <span class="badge text-bg-light border position-absolute top-50 start-50 translate-middle px-3 py-2">ou entre com e-mail</span>
+          <span class="badge text-bg-light border position-absolute top-50 start-50 translate-middle px-3 py-2">ou entre com e-mail ou telefone</span>
         </div>
 
         <form @submit.prevent="fazerLogin">
           <div class="mb-3">
-            <label for="email" class="form-label">E-mail</label>
-            <input id="email" v-model="email" type="email" class="form-control" placeholder="seuemail@exemplo.com" required />
+            <label for="identificador" class="form-label">E-mail ou telefone</label>
+            <input id="identificador" v-model="identificador" type="text" class="form-control" placeholder="seuemail@exemplo.com ou +5511987654321" required />
           </div>
 
           <div class="mb-3">
@@ -64,7 +64,7 @@ import { cancelarOneTap, exibirOneTap, getGoogleClientId, renderizarBotaoGoogle 
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 
 const router = useRouter()
-const email = ref('')
+const identificador = ref('')
 const senha = ref('')
 const mensagem = ref('')
 const googleMensagem = ref('')
@@ -82,15 +82,15 @@ async function fazerLogin() {
   mensagem.value = ''
   googleMensagem.value = ''
 
-  if (!email.value || !senha.value) {
-    mensagem.value = 'Preencha e-mail e senha.'
+  if (!identificador.value || !senha.value) {
+    mensagem.value = 'Preencha e-mail ou telefone e senha.'
     return
   }
 
   carregando.value = true
 
   try {
-    const resposta = await login({ email: email.value.trim(), senha: senha.value })
+    const resposta = await login({ identificador: identificador.value.trim(), senha: senha.value })
     salvarSessao(resposta)
     redirecionarConta()
   } catch (e) {

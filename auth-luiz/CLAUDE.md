@@ -96,7 +96,7 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | Método | Caminho | Autenticação | Descrição |
 |--------|---------|--------------|-----------|
 | POST | `/auth/cadastro` | Pública | Cadastro de novo usuário |
-| POST | `/auth/login` | Pública | Login com e-mail e senha |
+| POST | `/auth/login` | Pública | Login local: e-mail ou telefone + senha |
 | POST | `/auth/oauth/google` | Pública | Login/cadastro via Google (retorna 409 se já existe conta com o e-mail — vincular via conta) |
 | POST | `/auth/oauth/google/vincular` | JWT | Vincula Google à conta autenticada (e-mail do Google deve ser igual ao da conta) |
 | DELETE | `/auth/oauth/google/vincular` | JWT | Desvincula Google da conta (exige senha definida para não perder o acesso) |

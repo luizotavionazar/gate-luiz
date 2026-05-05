@@ -50,7 +50,7 @@ public class AutenticacaoService {
     private static final int LIMITE_TENTATIVAS_IP = 5;
     private static final long BLOQUEIO_IP_MINUTES = 2;
 
-    static final String MSG_CREDENCIAIS_INVALIDAS = "E-mail ou senha incorretos!";
+    static final String MSG_CREDENCIAIS_INVALIDAS = "E-mail/telefone ou senha incorretos!";
 
     @Transactional
     public CadastroResponse cadastrar(CadastroRequest request, String ip) {
@@ -77,9 +77,11 @@ public class AutenticacaoService {
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        String emailNormalizado = request.emailNormalizado();
+        String identificadorNormalizado = request.identificadorNormalizado();
 
-        Usuario usuario = usuarioRepository.findByEmail(emailNormalizado)
+        Usuario usuario = (request.isEmail()
+                ? usuarioRepository.findByEmail(identificadorNormalizado)
+                : usuarioRepository.findByTelefone(identificadorNormalizado))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, MSG_CREDENCIAIS_INVALIDAS));
 
         if (!usuario.possuiSenha()) {
@@ -95,7 +97,12 @@ public class AutenticacaoService {
         String token = jwtService.gerarToken(usuario);
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                 ProviderExterno.GOOGLE);
-        AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
+
+        String detalhe = request.isEmail()
+                ? "E-mail: " + identificadorNormalizado
+                : "Telefone: " + identificadorNormalizado;
+        AuditoriaService.definirDetalhes(detalhe);
+
         return LoginResponse.from(usuario, temLoginGoogle, token, jwtService.getExpirationMinutes());
     }
 

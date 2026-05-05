@@ -7,7 +7,7 @@ API de autenticação pronta para reutilização, construída com Spring Boot e 
 ### Funcionalidades
 
 - Cadastro de conta com e-mail e senha
-- Login com JWT (RS256 assimétrico, stateless)
+- Login com JWT (RS256 assimétrico, stateless) — aceita e-mail ou telefone + senha
 - Login e vinculação de conta com Google (OAuth via Google Identity Services)
 - Confirmação de e-mail no cadastro e na alteração de e-mail
 - Recuperação e redefinição de senha por e-mail

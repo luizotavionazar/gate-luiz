@@ -58,7 +58,7 @@ npm run preview  # pré-visualização do build de produção
 ### Autenticação
 
 - Cadastro com e-mail, senha e telefone (opcional)
-- Login local (e-mail + senha)
+- Login local (e-mail ou telefone + senha)
 - Login com Google (Google Identity Services)
 - Recuperação e redefinição de senha por e-mail
 
