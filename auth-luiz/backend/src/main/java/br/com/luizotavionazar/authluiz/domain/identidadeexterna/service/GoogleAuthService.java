@@ -41,8 +41,11 @@ public class GoogleAuthService {
                 .orElse(null);
 
         if (identidadeExistente != null) {
-            Usuario usuario = identidadeExistente.getUsuario();
-            usuarioRepository.atualizarUltimoLogin(usuario.getId(), LocalDateTime.now());
+            Integer idUsuario = identidadeExistente.getUsuario().getId();
+            usuarioRepository.atualizarUltimoLogin(idUsuario, LocalDateTime.now());
+            // Re-fetch after clearAutomatically=true detaches the lazy proxy
+            Usuario usuario = usuarioRepository.findById(idUsuario)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
             AuditoriaService.definirDetalhes("E-mail: " + googleUsuario.emailNormalizado());
             return gerarRespostaLogin(usuario);
         }

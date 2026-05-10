@@ -52,11 +52,6 @@ public class AutenticacaoController {
         );
     }
 
-    @GetMapping("/recuperacao/validar")
-    public ResponseEntity<MensagemResponse> validarTokenRecuperacao(@RequestParam String token) {
-        return ResponseEntity.ok(autenticacaoService.validarTokenRecuperacao(token));
-    }
-
     @Auditavel(acao = AcaoAuditoria.RECUPERACAO_SENHA_REDEFINIDA, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/recuperacao/redefinir")
     public ResponseEntity<MensagemResponse> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request) {

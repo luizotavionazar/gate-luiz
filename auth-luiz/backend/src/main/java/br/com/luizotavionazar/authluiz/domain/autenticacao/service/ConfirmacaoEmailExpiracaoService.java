@@ -1,7 +1,5 @@
 package br.com.luizotavionazar.authluiz.domain.autenticacao.service;
 
-import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
-import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenConfirmacaoRepository;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,21 +15,21 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ConfirmacaoEmailExpiracaoService {
 
-    private final TokenConfirmacaoRepository tokenConfirmacaoRepository;
+    static final long DIAS_RETENCAO_CONTA_NAO_VERIFICADA = 7;
+
     private final UsuarioRepository usuarioRepository;
 
     @Scheduled(fixedDelay = 3_600_000)
     @Transactional
-    public void removerContasNaoVerificadasExpiradas() {
-        List<Integer> ids = tokenConfirmacaoRepository.findIdUsuariosNaoVerificadosSemTokenAtivo(
-                TipoTokenConfirmacao.VERIFICACAO_CADASTRO, LocalDateTime.now()
-        );
+    public void removerContasNaoVerificadasAntigas() {
+        LocalDateTime limite = LocalDateTime.now().minusDays(DIAS_RETENCAO_CONTA_NAO_VERIFICADA);
+        List<Integer> ids = usuarioRepository.findIdsNaoVerificadosAntigos(limite);
 
         if (ids.isEmpty()) {
             return;
         }
 
-        log.info("Removendo {} conta(s) não verificada(s) com token expirado.", ids.size());
+        log.info("Removendo {} conta(s) não verificada(s) com mais de {} dias.", ids.size(), DIAS_RETENCAO_CONTA_NAO_VERIFICADA);
         usuarioRepository.deleteAllById(ids);
     }
 }

@@ -20,28 +20,26 @@
           <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
             <div class="flex-grow-1">
               <strong>E-mail não verificado!</strong><br>
-              Verifique sua caixa de entrada em <strong>{{ conta.email }}</strong> e clique no link de ativação enviado.
+              Confirme seu e-mail para liberar todas as funcionalidades da conta.
             </div>
-            <button class="btn btn-sm btn-warning flex-shrink-0" :disabled="reenviando" @click="reenviarVerificacaoEmail">
-              {{ reenviando ? 'Enviando...' : 'Reenviar e-mail' }}
+            <button class="btn btn-sm btn-warning flex-shrink-0" :disabled="solicitandoVerificacao" @click="solicitarVerificacao">
+              {{ solicitandoVerificacao ? 'Enviando...' : 'Confirmar e-mail' }}
             </button>
           </div>
-          <div v-if="mensagemReenvioVerificacao" class="small mt-2 text-success-emphasis">{{ mensagemReenvioVerificacao }}</div>
-          <div v-if="erroReenvioVerificacao" class="small mt-2 text-danger-emphasis">{{ erroReenvioVerificacao }}</div>
+          <div v-if="erroSolicitarVerificacao" class="small mt-2 text-danger-emphasis">{{ erroSolicitarVerificacao }}</div>
         </div>
 
         <div v-if="conta.emailPendente" class="alert alert-info mb-4">
           <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
             <div class="flex-grow-1">
               <strong>Alteração de e-mail pendente!</strong><br>
-              Acesse o link de confirmação enviado para <strong>{{ conta.emailPendente }}</strong>.
+              Confirme a alteração para <strong>{{ conta.emailPendente }}</strong>.
             </div>
-            <button class="btn btn-sm btn-info flex-shrink-0" :disabled="reenviandoAlteracaoEmail" @click="reenviarEmailAlteracao">
-              {{ reenviandoAlteracaoEmail ? 'Enviando...' : 'Reenviar e-mail' }}
+            <button class="btn btn-sm btn-info flex-shrink-0" :disabled="solicitandoConfirmacaoAlteracao" @click="solicitarConfirmacaoAlteracao">
+              {{ solicitandoConfirmacaoAlteracao ? 'Enviando...' : 'Confirmar alteração' }}
             </button>
           </div>
-          <div v-if="mensagemReenvioAlteracaoEmail" class="small mt-2 text-success-emphasis">{{ mensagemReenvioAlteracaoEmail }}</div>
-          <div v-if="erroReenvioAlteracaoEmail" class="small mt-2 text-danger-emphasis">{{ erroReenvioAlteracaoEmail }}</div>
+          <div v-if="erroSolicitarConfirmacaoAlteracao" class="small mt-2 text-danger-emphasis">{{ erroSolicitarConfirmacaoAlteracao }}</div>
         </div>
         <div class="card shadow border-0 rounded-4 mb-4">
           <div class="card-body p-4">
@@ -416,12 +414,10 @@ const erroEmail = ref('')
 const erroSenha = ref('')
 const erroTelefone = ref('')
 
-const reenviando = ref(false)
-const mensagemReenvioVerificacao = ref('')
-const erroReenvioVerificacao = ref('')
-const reenviandoAlteracaoEmail = ref(false)
-const mensagemReenvioAlteracaoEmail = ref('')
-const erroReenvioAlteracaoEmail = ref('')
+const solicitandoVerificacao = ref(false)
+const erroSolicitarVerificacao = ref('')
+const solicitandoConfirmacaoAlteracao = ref(false)
+const erroSolicitarConfirmacaoAlteracao = ref('')
 
 const googleVincularButtonRef = ref(null)
 const mensagemGoogle = ref('')
@@ -575,33 +571,29 @@ async function salvarTelefone() {
   }
 }
 
-async function reenviarVerificacaoEmail() {
-  mensagemReenvioVerificacao.value = ''
-  erroReenvioVerificacao.value = ''
-  reenviando.value = true
+async function solicitarVerificacao() {
+  erroSolicitarVerificacao.value = ''
+  solicitandoVerificacao.value = true
   try {
     await reenviarVerificacao()
-    await carregarConta()
-    mensagemReenvioVerificacao.value = 'E-mail reenviado com sucesso!'
+    router.push('/verificar-email')
   } catch (e) {
-    erroReenvioVerificacao.value = extrairMensagemErro(e, 'Não foi possível reenviar o e-mail de verificação.')
+    erroSolicitarVerificacao.value = extrairMensagemErro(e, 'Não foi possível enviar o código de verificação.')
   } finally {
-    reenviando.value = false
+    solicitandoVerificacao.value = false
   }
 }
 
-async function reenviarEmailAlteracao() {
-  mensagemReenvioAlteracaoEmail.value = ''
-  erroReenvioAlteracaoEmail.value = ''
-  reenviandoAlteracaoEmail.value = true
+async function solicitarConfirmacaoAlteracao() {
+  erroSolicitarConfirmacaoAlteracao.value = ''
+  solicitandoConfirmacaoAlteracao.value = true
   try {
     await reenviarConfirmacaoAlteracaoEmail()
-    await carregarConta()
-    mensagemReenvioAlteracaoEmail.value = 'E-mail reenviado com sucesso!'
+    router.push({ path: '/verificar-email', query: { tipo: 'alteracao' } })
   } catch (e) {
-    erroReenvioAlteracaoEmail.value = extrairMensagemErro(e, 'Não foi possível reenviar o e-mail de confirmação de alteração.')
+    erroSolicitarConfirmacaoAlteracao.value = extrairMensagemErro(e, 'Não foi possível enviar o código de confirmação.')
   } finally {
-    reenviandoAlteracaoEmail.value = false
+    solicitandoConfirmacaoAlteracao.value = false
   }
 }
 

@@ -45,10 +45,11 @@ public class AutenticacaoService {
     private final TokenConfirmacaoService tokenConfirmacaoService;
 
     private static final long COOLDOWN_TOKEN_MINUTES = 2;
-    private static final long EXPIRACAO_TOKEN_MINUTES = 30;
+    private static final long EXPIRACAO_TOKEN_MINUTES = 5;
     private static final long JANELA_IP_MINUTES = 10;
     private static final int LIMITE_TENTATIVAS_IP = 5;
     private static final long BLOQUEIO_IP_MINUTES = 2;
+    private static final int MAX_TENTATIVAS_RECUPERACAO = 5;
 
     static final String MSG_CREDENCIAIS_INVALIDAS = "E-mail/telefone ou senha incorretos!";
 
@@ -66,10 +67,9 @@ public class AutenticacaoService {
 
         usuario.setEmailVerificado(false);
         usuarioRepository.save(usuario);
-        String tokenVerificacao = tokenConfirmacaoService.criarTokenVerificacaoCadastro(usuario, ip);
 
         eventPublisher.publishEvent(
-                new UsuarioCadastradoEvent(usuario.getId(), usuario.getNome(), usuario.getEmail(), tokenVerificacao));
+                new UsuarioCadastradoEvent(usuario.getId(), usuario.getNome(), usuario.getEmail()));
 
         AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
         return CadastroResponse.from(usuario);
@@ -147,49 +147,65 @@ public class AutenticacaoService {
                 return;
             }
 
-            String tokenBruto = TokenUtils.gerarTokenSeguro();
-            String tokenHash = TokenUtils.gerarHash(tokenBruto);
+            String codigoBruto = TokenUtils.gerarCodigoNumerico6Digitos();
+            String codigoHash = TokenUtils.gerarHash(codigoBruto);
 
             TokenRecuperacaoSenha token = TokenRecuperacaoSenha.builder()
                     .usuario(usuario)
-                    .tokenHash(tokenHash)
+                    .tokenHash(codigoHash)
                     .expiraEm(agora.plusMinutes(EXPIRACAO_TOKEN_MINUTES))
                     .ipSolicitacao(ip)
                     .build();
 
             tokenRecuperacaoSenhaRepository.save(token);
-            emailService.enviarRecuperacaoSenha(usuario.getNome(), usuario.getEmail(), tokenBruto);
+            emailService.enviarRecuperacaoSenha(usuario.getNome(), usuario.getEmail(), codigoBruto);
         });
 
         AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
         return mensagemGenericaRecuperacao();
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public MensagemResponse redefinirSenha(RedefinirSenhaRequest request) {
-        String tokenHash = TokenUtils.gerarHash(request.token());
+        String emailNormalizado = request.emailNormalizado();
 
-        TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository.findByTokenHash(tokenHash)
+        Usuario usuario = usuarioRepository.findByEmail(emailNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Link de recuperação inválido ou expirado!"));
+                        "Código de recuperação inválido ou expirado!"));
 
-        if (token.usado() || token.encerrado()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!");
-        }
+        LocalDateTime agora = LocalDateTime.now();
+
+        TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository
+                .findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(usuario.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Código de recuperação inválido ou expirado!"));
 
         if (token.expirado()) {
             tokenRecuperacaoSenhaExpiracaoService.encerrarSeExpirado(token);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Código de recuperação inválido ou expirado!");
+        }
+
+        String codigoHash = TokenUtils.gerarHash(request.codigo());
+        if (!codigoHash.equals(token.getTokenHash())) {
+            token.setTentativasErradas(token.getTentativasErradas() + 1);
+            if (token.getTentativasErradas() >= MAX_TENTATIVAS_RECUPERACAO) {
+                token.setEncerradoEm(agora);
+                tokenRecuperacaoSenhaRepository.saveAndFlush(token);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Código bloqueado após muitas tentativas incorretas. Solicite uma nova recuperação de senha.");
+            }
+            tokenRecuperacaoSenhaRepository.saveAndFlush(token);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Código de recuperação inválido!");
         }
 
         politicaSenhaService.validar(request.novaSenha());
 
-        Usuario usuario = token.getUsuario();
         if (usuario.possuiSenha() && passwordEncoder.matches(request.novaSenha(), usuario.getSenhaHash())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A nova senha deve ser diferente da atual!");
         }
 
-        LocalDateTime agora = LocalDateTime.now();
         usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
         usuarioRepository.saveAndFlush(usuario);
 
@@ -198,27 +214,7 @@ public class AutenticacaoService {
         tokenRecuperacaoSenhaRepository.saveAndFlush(token);
 
         AuditoriaService.definirDetalhes("E-mail: " + usuario.getEmail());
-        return new MensagemResponse("Senha redefinida com sucesso");
-    }
-
-    @Transactional
-    public MensagemResponse validarTokenRecuperacao(String tokenBruto) {
-        String tokenHash = TokenUtils.gerarHash(tokenBruto);
-
-        TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Link de recuperação inválido ou expirado!"));
-
-        if (token.usado() || token.encerrado()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!");
-        }
-
-        if (token.expirado()) {
-            tokenRecuperacaoSenhaExpiracaoService.encerrarSeExpirado(token);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link de recuperação inválido ou expirado!");
-        }
-
-        return new MensagemResponse("Token válido!");
+        return new MensagemResponse("Senha redefinida com sucesso!");
     }
 
     private MensagemResponse mensagemGenericaRecuperacao() {

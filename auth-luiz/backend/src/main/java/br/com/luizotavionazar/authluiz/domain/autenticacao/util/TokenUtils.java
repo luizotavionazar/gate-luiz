@@ -16,6 +16,11 @@ public final class TokenUtils {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    public static String gerarCodigoNumerico6Digitos() {
+        int codigo = 100000 + new SecureRandom().nextInt(900000);
+        return String.valueOf(codigo);
+    }
+
     public static String gerarHash(String valor) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

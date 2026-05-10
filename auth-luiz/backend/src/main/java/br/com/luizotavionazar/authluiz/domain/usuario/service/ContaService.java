@@ -115,8 +115,8 @@ public class ContaService {
         usuarioRepository.atualizarEmailPendente(usuario.getId(), emailNormalizado);
         usuario.setEmailPendente(emailNormalizado); // apenas para o DTO da resposta, entidade já desanexada
 
-        String token = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, emailNormalizado, ip);
-        emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), emailNormalizado, token);
+        String codigo = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, emailNormalizado, ip);
+        emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), emailNormalizado, codigo);
         AuditoriaService.definirDetalhes("E-mail alterado de '" + usuario.getEmail() + "' para '" + emailNormalizado + "'");
 
         return ContaResponse.from(usuario, temLoginGoogle);

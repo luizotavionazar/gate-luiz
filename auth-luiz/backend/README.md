@@ -23,12 +23,12 @@ src/main/java/.../authluiz/
 │   ├── autenticacao/
 │   │   ├── controller/
 │   │   │   ├── AutenticacaoController   POST /auth/cadastro, /auth/login
-│   │   │   │                            POST /auth/recuperacao/**
-│   │   │   └── ConfirmacaoController    GET  /auth/verificacao/confirmar
+│   │   │   │                            POST /auth/recuperacao/iniciar, /auth/recuperacao/redefinir
+│   │   │   └── ConfirmacaoController    POST /auth/verificacao/confirmar (JWT)
 │   │   │                                POST /auth/verificacao/reenviar
 │   │   └── dto/                         CadastroRequest/Response, LoginRequest/Response,
 │   │                                    RecuperacaoSenhaRequest, RedefinirSenhaRequest,
-│   │                                    ContaResponse, MensagemResponse
+│   │                                    ConfirmarEmailRequest, ContaResponse, MensagemResponse
 │   ├── common/
 │   │   ├── exception/  ExcecaoLimiteTentativas
 │   │   └── handler/    ApiExceptionHandler  — trata ResponseStatusException globalmente
@@ -70,7 +70,7 @@ src/main/java/.../authluiz/
 │   │   │   └── CategoriaAuditoria        SEGURANCA (sempre ativo) | ATIVIDADE (configurável)
 │   │   ├── repository/ LogAuditoriaRepository
 │   │   └── service/
-│   │       ├── AuditoriaService          Persiste registros de log
+│   │       ├── AuditoriaService          Persiste registros de log (REQUIRES_NEW — independe da transação principal)
 │   │       └── AuditoriaLimpezaService   @Scheduled (03:00) — exclui logs mais antigos que retencao-dias
 │   │
 │   ├── autenticacao/
@@ -82,7 +82,7 @@ src/main/java/.../authluiz/
 │   │   │   ├── ControleAlteracaoEmail   Rate limiting de alteração de e-mail por usuário
 │   │   │   └── PoliticaSenha            Regras de complexidade de senha
 │   │   ├── event/   UsuarioCadastradoEvent
-│   │   ├── listener/ UsuarioCadastradoListener — envia e-mail de verificação de cadastro pós-commit
+│   │   ├── listener/ UsuarioCadastradoListener — envia e-mail de boas-vindas pós-commit (@Async + @TransactionalEventListener)
 │   │   ├── repository/  (JPA repositories para as entidades acima)
 │   │   ├── service/
 │   │   │   ├── AutenticacaoService      Cadastro e login local
@@ -93,7 +93,7 @@ src/main/java/.../authluiz/
 │   │   │   ├── ConfirmacaoEmailExpiracaoService  @Scheduled — remove contas não confirmadas após 7 dias
 │   │   │   └── TokenRecuperacaoSenhaExpiracaoService  @Scheduled — limpa tokens expirados
 │   │   └── util/
-│   │       └── TokenUtils               gerarTokenSeguro() + gerarHash() (SHA-256)
+│   │       └── TokenUtils               gerarTokenSeguro() + gerarCodigoNumerico6Digitos() + gerarHash() (SHA-256)
 │   │
 │   ├── configuracao/
 │   │   ├── entity/   ConfiguracaoAplicacao  — setup SMTP + flag setupConcluido
@@ -134,6 +134,9 @@ src/main/java/.../authluiz/
 | `V2__adicionar_telefone_usuario.sql` | Adiciona colunas `telefone` (VARCHAR 20, nullable) e `telefoneVerificado` (boolean) à tabela `usuario` |
 | `V3__unique_telefone_usuario.sql`    | Adiciona constraint `uq_usuario_telefone` — unicidade de telefone (NULLs múltiplos permitidos pelo PostgreSQL) |
 | `V4__log_auditoria.sql`             | Cria tabela `log_auditoria` com índices em `idUsuario`, `criadoEm` e `acao` |
+| `V5__ultimo_login_usuario.sql`      | Adiciona coluna `ultimoLogin` (TIMESTAMP WITH TIME ZONE, nullable) à tabela `usuario` |
+| `V6__tentativas_erradas_tokens.sql` | Adiciona coluna `tentativasErradas` (SMALLINT, default 0) às tabelas `tokenConfirmacao` e `tokenRecuperacaoSenha` |
+| `V7__tentativas_erradas_integer.sql` | Converte `tentativasErradas` de SMALLINT para INTEGER nas duas tabelas (alinha com o tipo Java `int`) |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -182,16 +185,15 @@ docker compose -f ../compose-dev.yaml up -d
 | POST        | `/auth/oauth/google`               | Pública      | Login/cadastro via Google (409 se e-mail já existe)|
 | POST        | `/auth/oauth/google/vincular`      | JWT          | Vincula Google à conta (e-mail Google = e-mail conta) |
 | DELETE      | `/auth/oauth/google/vincular`      | JWT          | Desvincula Google (exige senha definida; bloqueado para contas criadas via Google) |
-| POST        | `/auth/recuperacao/iniciar`        | Pública      | Inicia recuperação de senha                        |
-| GET         | `/auth/recuperacao/validar`        | Pública      | Valida token de recuperação                        |
-| POST        | `/auth/recuperacao/redefinir`      | Pública      | Redefine senha com token válido                    |
+| POST        | `/auth/recuperacao/iniciar`        | Pública      | Inicia recuperação de senha (envia código de 6 dígitos por e-mail) |
+| POST        | `/auth/recuperacao/redefinir`      | Pública      | Redefine senha — body: `{email, codigo, novaSenha}` |
 | GET         | `/auth/me`                         | JWT          | Dados da conta autenticada                         |
 | PATCH       | `/auth/me/nome`                    | JWT          | Atualiza nome                                      |
 | PATCH       | `/auth/me/email`                   | JWT          | Solicita alteração de e-mail (novo deve diferir do atual; sempre envia confirmação) |
 | PATCH       | `/auth/me/senha`                   | JWT          | Altera ou define senha                             |
 | PATCH       | `/auth/me/telefone`                | JWT          | Atualiza ou remove telefone (null remove; sempre define telefoneVerificado=false) |
 | DELETE      | `/auth/me`                         | JWT          | Exclui a conta                                     |
-| GET         | `/auth/verificacao/confirmar`      | Pública      | Confirma e-mail via token (cadastro ou alteração)  |
+| POST        | `/auth/verificacao/confirmar`      | JWT          | Confirma e-mail via código de 6 dígitos — body: `{codigo}`; backend detecta o tipo pendente (cadastro ou alteração de e-mail) |
 | POST        | `/auth/verificacao/reenviar`       | JWT          | Reenvia e-mail de verificação de cadastro (cooldown: 2 min) |
 | POST        | `/auth/verificacao/reenviar-alteracao-email` | JWT | Reenvia e-mail de confirmação de alteração de e-mail (cooldown: 2 min) |
 | GET / POST  | `/setup/**`                        | Chave mestra | Configuração inicial                               |

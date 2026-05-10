@@ -28,8 +28,8 @@ src/
     ├── CadastroView.vue          Cadastro com e-mail e senha
     ├── ContaView.vue             Gerenciamento da conta autenticada
     ├── RecuperarSenhaView.vue    Solicitação de recuperação de senha
-    ├── RedefinirSenhaView.vue    Redefinição de senha via token
-    ├── VerificacaoEmailView.vue  Confirmação de e-mail (cadastro e alteração)
+    ├── RedefinirSenhaView.vue    Redefinição de senha via código de 6 dígitos (e-mail pré-preenchido via query param)
+    ├── VerificacaoEmailView.vue  Confirmação de e-mail via código de 6 dígitos (cadastro e alteração)
     └── SetupView.vue             Setup inicial da aplicação
 ```
 
@@ -60,18 +60,18 @@ npm run preview  # pré-visualização do build de produção
 - Cadastro com e-mail, senha e telefone (opcional)
 - Login local (e-mail ou telefone + senha)
 - Login com Google (Google Identity Services)
-- Recuperação e redefinição de senha por e-mail
+- Recuperação e redefinição de senha por e-mail via código de 6 dígitos
 
 ### Conta autenticada (`ContaView`)
 
 - Visualização dos dados da conta (nome, e-mail e telefone)
 - Alteração de nome
-- Alteração de e-mail (sempre exige confirmação; bloqueada para contas com Google vinculado)
-- Reenvio de e-mail de confirmação de alteração de e-mail (com botão no alerta de pendência)
+- Alteração de e-mail (sempre exige confirmação via código de 6 dígitos; bloqueada para contas com Google vinculado)
+- Botão "Confirmar e-mail" no alerta de e-mail não verificado — envia o código sob demanda e redireciona para `/verificar-email`
+- Botão "Confirmar alteração" no alerta de e-mail pendente — envia o código e redireciona para `/verificar-email?tipo=alteracao`
 - Troca de senha
 - Definição de senha para contas criadas via Google
 - Atualização ou remoção de telefone
-- Reenvio de e-mail de verificação de cadastro
 - Vinculação de conta Google (exige e-mail idêntico ao da conta)
 - Desvinculação de conta Google com confirmação de senha (bloqueada para contas criadas via Google)
 - Exclusão de conta com confirmação de senha

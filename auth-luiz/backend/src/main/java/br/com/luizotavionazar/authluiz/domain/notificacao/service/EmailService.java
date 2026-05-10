@@ -20,72 +20,104 @@ public class EmailService {
     private final SetupService setupService;
 
     @Async
-    public void enviarVerificacaoCadastro(String nome, String email, String token) {
+    public void enviarBoasVindas(String nome, String email) {
         ConfiguracaoAplicacao config = validarSetupEmail();
-
-        String link = config.getFrontendBaseUrl() + "/verificar-email?token=" + token;
 
         String corpo = """
                 <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
-                <p style="margin:0 0 24px;">Sua conta foi criada com sucesso. Para ativá-la, confirme seu endereço de e-mail clicando no botão abaixo.</p>
-                <p style="margin:24px 0 0;color:#6c757d;font-size:13px;">Este link é válido por <strong>7 dias</strong>. Se você não confirmar dentro deste prazo, sua conta será removida automaticamente. Caso não tenha criado uma conta, ignore este e-mail.</p>
+                <p style="margin:0 0 0;">Sua conta foi criada com sucesso. Quando quiser, acesse <strong>Minha conta</strong> para confirmar seu e-mail e liberar todos os recursos da plataforma.</p>
                 """.formatted(nome);
 
         String html = construirHtml(
-                "Verifique seu e-mail",
-                "Só mais um passo para ativar sua conta",
+                "Bem-vindo ao AuthLuiz!",
+                "Sua conta está pronta",
                 corpo,
-                "Verificar e-mail",
-                link
+                null,
+                null
         );
 
-        enviar(config, email, "Verifique seu e-mail - AuthLuiz", html);
+        enviar(config, email, "Bem-vindo ao AuthLuiz!", html);
     }
 
     @Async
-    public void enviarConfirmacaoAlteracaoEmail(String nome, String novoEmail, String token) {
+    public void enviarVerificacaoCadastro(String nome, String email, String codigo) {
         ConfiguracaoAplicacao config = validarSetupEmail();
-
-        String link = config.getFrontendBaseUrl() + "/verificar-email?token=" + token;
 
         String corpo = """
                 <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
-                <p style="margin:0 0 24px;">Recebemos uma solicitação para alterar o e-mail da sua conta para este endereço. Clique no botão abaixo para confirmar a alteração.</p>
-                <p style="margin:24px 0 0;color:#6c757d;font-size:13px;">Este link expira em <strong>30 minutos</strong> e pode ser usado apenas uma vez. Se você não solicitou essa alteração, ignore este e-mail — seu e-mail atual permanecerá inalterado.</p>
-                """.formatted(nome);
+                <p style="margin:0 0 24px;">Insira o código abaixo no AuthLuiz para confirmar seu e-mail.</p>
+                <div style="text-align:center;margin:28px 0;">
+                  <div style="display:inline-block;background:#f0f4ff;border:2px dashed #0d6efd;border-radius:12px;padding:16px 40px;">
+                    <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#0d6efd;">%s</span>
+                  </div>
+                  <p style="margin:12px 0 0;color:#6c757d;font-size:13px;">Este código expira em <strong>5 minutos</strong> e pode ser usado apenas uma vez.</p>
+                </div>
+                <p style="margin:24px 0 0;color:#6c757d;font-size:13px;">Caso não tenha solicitado isso, ignore este e-mail.</p>
+                """.formatted(nome, codigo);
+
+        String html = construirHtml(
+                "Ative sua conta",
+                "Só mais um passo para começar",
+                corpo,
+                null,
+                null
+        );
+
+        enviar(config, email, "Código de ativação - AuthLuiz", html);
+    }
+
+    @Async
+    public void enviarConfirmacaoAlteracaoEmail(String nome, String novoEmail, String codigo) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        String corpo = """
+                <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
+                <p style="margin:0 0 24px;">Recebemos uma solicitação para alterar o e-mail da sua conta para este endereço. Insira o código abaixo no AuthLuiz para confirmar a alteração.</p>
+                <div style="text-align:center;margin:28px 0;">
+                  <div style="display:inline-block;background:#f0f4ff;border:2px dashed #0d6efd;border-radius:12px;padding:16px 40px;">
+                    <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#0d6efd;">%s</span>
+                  </div>
+                  <p style="margin:12px 0 0;color:#6c757d;font-size:13px;">Este código expira em <strong>5 minutos</strong> e pode ser usado apenas uma vez.</p>
+                </div>
+                <p style="margin:24px 0 0;color:#6c757d;font-size:13px;">Se você não solicitou essa alteração, ignore este e-mail — seu e-mail atual permanecerá inalterado.</p>
+                """.formatted(nome, codigo);
 
         String html = construirHtml(
                 "Confirme seu novo e-mail",
                 "Solicitação de alteração de e-mail",
                 corpo,
-                "Confirmar e-mail",
-                link
+                null,
+                null
         );
 
-        enviar(config, novoEmail, "Confirme seu novo e-mail - AuthLuiz", html);
+        enviar(config, novoEmail, "Código de confirmação de e-mail - AuthLuiz", html);
     }
 
     @Async
-    public void enviarRecuperacaoSenha(String nome, String email, String token) {
+    public void enviarRecuperacaoSenha(String nome, String email, String codigo) {
         ConfiguracaoAplicacao config = validarSetupEmail();
-
-        String link = config.getFrontendBaseUrl() + "/redefinir-senha?token=" + token;
 
         String corpo = """
                 <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
-                <p style="margin:0 0 24px;">Recebemos um pedido para redefinir a senha da sua conta. Clique no botão abaixo para cadastrar uma nova senha.</p>
-                <p style="margin:24px 0 0;color:#6c757d;font-size:13px;">Este link expira em <strong>30 minutos</strong> e pode ser usado apenas uma vez. Se você não solicitou essa alteração, ignore este e-mail.</p>
-                """.formatted(nome);
+                <p style="margin:0 0 24px;">Recebemos um pedido para redefinir a senha da sua conta. Insira o código abaixo no AuthLuiz para criar uma nova senha.</p>
+                <div style="text-align:center;margin:28px 0;">
+                  <div style="display:inline-block;background:#f0f4ff;border:2px dashed #0d6efd;border-radius:12px;padding:16px 40px;">
+                    <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#0d6efd;">%s</span>
+                  </div>
+                  <p style="margin:12px 0 0;color:#6c757d;font-size:13px;">Este código expira em <strong>5 minutos</strong> e pode ser usado apenas uma vez.</p>
+                </div>
+                <p style="margin:24px 0 0;color:#6c757d;font-size:13px;">Se você não solicitou essa alteração, ignore este e-mail.</p>
+                """.formatted(nome, codigo);
 
         String html = construirHtml(
                 "Redefinição de senha",
                 "Recebemos sua solicitação",
                 corpo,
-                "Redefinir senha",
-                link
+                null,
+                null
         );
 
-        enviar(config, email, "Recuperação de senha - AuthLuiz", html);
+        enviar(config, email, "Código de recuperação de senha - AuthLuiz", html);
     }
 
     private String construirHtml(String titulo, String subtitulo, String corpoHtml,

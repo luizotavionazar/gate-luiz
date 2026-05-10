@@ -21,15 +21,17 @@ public class ConfirmacaoService {
     private final UsuarioRepository usuarioRepository;
     private final EmailService emailService;
 
-    @Transactional
-    public void confirmarEmail(String tokenBruto) {
-        TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValido(tokenBruto);
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public void confirmarEmail(Integer idUsuario, String codigo) {
+        TipoTokenConfirmacao tipo = detectarTipoPendente(idUsuario);
+
+        TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValidoPorUsuario(idUsuario, tipo, codigo);
         Usuario usuario = token.getUsuario();
 
-        if (token.getTipo() == TipoTokenConfirmacao.VERIFICACAO_CADASTRO) {
+        if (tipo == TipoTokenConfirmacao.VERIFICACAO_CADASTRO) {
             usuario.setEmailVerificado(true);
             usuarioRepository.save(usuario);
-        } else if (token.getTipo() == TipoTokenConfirmacao.ALTERACAO_EMAIL) {
+        } else {
             String novoEmail = token.getEmailDestino();
             if (usuarioRepository.existsByEmailAndIdNot(novoEmail, usuario.getId())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Este e-mail já está em uso por outra conta!");
@@ -39,7 +41,7 @@ public class ConfirmacaoService {
             usuarioRepository.save(usuario);
         }
 
-        String emailConfirmado = token.getTipo() == TipoTokenConfirmacao.ALTERACAO_EMAIL
+        String emailConfirmado = tipo == TipoTokenConfirmacao.ALTERACAO_EMAIL
                 ? token.getEmailDestino()
                 : usuario.getEmail();
         AuditoriaService.definirDetalhes("E-mail: " + emailConfirmado);
@@ -60,8 +62,8 @@ public class ConfirmacaoService {
                     "Aguarde alguns instantes antes de solicitar um novo e-mail de verificação!");
         }
 
-        String novoToken = tokenConfirmacaoService.criarTokenVerificacaoCadastro(usuario, ip);
-        emailService.enviarVerificacaoCadastro(usuario.getNome(), usuario.getEmail(), novoToken);
+        String novoCodigo = tokenConfirmacaoService.criarTokenVerificacaoCadastro(usuario, ip);
+        emailService.enviarVerificacaoCadastro(usuario.getNome(), usuario.getEmail(), novoCodigo);
 
         return new MensagemResponse("E-mail de verificação reenviado com sucesso!");
     }
@@ -80,9 +82,20 @@ public class ConfirmacaoService {
                     "Aguarde alguns instantes antes de solicitar um novo e-mail de confirmação.");
         }
 
-        String novoToken = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, usuario.getEmailPendente(), ip);
-        emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), usuario.getEmailPendente(), novoToken);
+        String novoCodigo = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, usuario.getEmailPendente(), ip);
+        emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), usuario.getEmailPendente(), novoCodigo);
 
         return new MensagemResponse("E-mail de confirmação reenviado com sucesso!");
+    }
+
+    private TipoTokenConfirmacao detectarTipoPendente(Integer idUsuario) {
+        if (tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.VERIFICACAO_CADASTRO)) {
+            return TipoTokenConfirmacao.VERIFICACAO_CADASTRO;
+        }
+        if (tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
+            return TipoTokenConfirmacao.ALTERACAO_EMAIL;
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Nenhum código de verificação ativo encontrado!");
     }
 }

@@ -6,6 +6,7 @@ import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -20,6 +21,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 
+@Slf4j
 @Aspect
 @Component
 @RequiredArgsConstructor
@@ -60,17 +62,21 @@ public class AuditoriaAspect {
             return resultado;
         } catch (Exception ex) {
             AuditoriaService.lerELimparDetalhes();
-            auditoriaService.registrar(LogAuditoria.builder()
-                    .acao(resolverAcaoFalha(auditavel.acao()))
-                    .categoria(auditavel.categoria())
-                    .idUsuario(idUsuario)
-                    .ipOrigem(ip)
-                    .uri(uri)
-                    .metodoHttp(metodo)
-                    .statusHttp(resolverStatus(ex))
-                    .sucesso(false)
-                    .detalhes(ex.getMessage())
-                    .build());
+            try {
+                auditoriaService.registrar(LogAuditoria.builder()
+                        .acao(resolverAcaoFalha(auditavel.acao()))
+                        .categoria(auditavel.categoria())
+                        .idUsuario(idUsuario)
+                        .ipOrigem(ip)
+                        .uri(uri)
+                        .metodoHttp(metodo)
+                        .statusHttp(resolverStatus(ex))
+                        .sucesso(false)
+                        .detalhes(ex.getMessage())
+                        .build());
+            } catch (Exception auditEx) {
+                log.error("Falha ao registrar auditoria de erro: {}", auditEx.getMessage(), auditEx);
+            }
             throw ex;
         }
     }

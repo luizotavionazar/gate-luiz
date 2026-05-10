@@ -49,6 +49,10 @@ public class TokenConfirmacao {
     @Column(name = "ipSolicitacao", length = 45)
     private String ipSolicitacao;
 
+    @Builder.Default
+    @Column(name = "tentativasErradas", nullable = false)
+    private int tentativasErradas = 0;
+
     @CreationTimestamp
     @Column(name = "dataCriacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;

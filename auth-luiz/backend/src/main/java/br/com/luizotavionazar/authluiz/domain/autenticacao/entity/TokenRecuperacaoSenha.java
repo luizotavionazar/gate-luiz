@@ -42,6 +42,10 @@ public class TokenRecuperacaoSenha {
     @Column(name = "encerradoEm")
     private LocalDateTime encerradoEm;
 
+    @Builder.Default
+    @Column(name = "tentativasErradas", nullable = false)
+    private int tentativasErradas = 0;
+
     @CreationTimestamp
     @Column(name = "dataCriacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;

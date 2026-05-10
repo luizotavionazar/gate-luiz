@@ -2,56 +2,139 @@
   <div class="min-vh-100 d-flex align-items-center justify-content-center py-5" style="background-color: #eef4ff;">
     <div class="card shadow border-0 rounded-4 text-center" style="width: 100%; max-width: 480px;">
       <div class="card-body p-4 p-md-5">
-        <template v-if="carregando">
-          <div class="spinner-border text-primary mb-3" role="status"></div>
-          <p class="text-muted">Verificando seu e-mail...</p>
-        </template>
 
-        <template v-else-if="sucesso">
+        <template v-if="sucesso">
           <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
           <h1 class="h4 fw-bold mt-3 mb-2">E-mail confirmado!</h1>
           <p class="text-muted mb-4">Sua conta está ativa agora.</p>
-          <router-link to="/login" class="btn btn-primary">Ir para o login</router-link>
+          <router-link to="/conta" class="btn btn-primary">Ir para minha conta</router-link>
         </template>
 
         <template v-else>
-          <i class="bi bi-x-circle-fill text-danger" style="font-size: 3rem;"></i>
-          <h1 class="h4 fw-bold mt-3 mb-2">Deu ruim!</h1>
-          <p class="text-muted mb-4">{{ erro }}</p>
-          <router-link to="/login" class="btn btn-primary">Voltar ao login</router-link>
+          <i class="bi bi-envelope-check text-primary" style="font-size: 3rem;"></i>
+          <h1 class="h4 fw-bold mt-3 mb-1">Verifique seu e-mail</h1>
+          <p class="text-muted mb-4">Digite o código de 6 dígitos enviado para sua caixa de entrada.</p>
+
+          <form @submit.prevent="confirmar">
+            <div class="d-flex justify-content-center gap-2 mb-3">
+              <input
+                v-for="(_, i) in digitos"
+                :key="i"
+                :ref="el => { if (el) inputs[i] = el }"
+                v-model="digitos[i]"
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                class="form-control text-center fw-bold fs-4 p-2"
+                style="width: 48px; height: 56px;"
+                @input="aoDigitar(i, $event)"
+                @keydown="aoApertarTecla(i, $event)"
+                @paste.prevent="aoColar($event)"
+              />
+            </div>
+
+            <div v-if="erro" class="alert alert-danger py-2 small mb-3">{{ erro }}</div>
+
+            <div class="d-grid mb-3">
+              <button type="submit" class="btn btn-primary" :disabled="confirmando || codigoCompleto.length < 6">
+                {{ confirmando ? 'Confirmando...' : 'Confirmar e-mail' }}
+              </button>
+            </div>
+          </form>
+
+          <p class="text-muted small mb-0">
+            Não recebeu?
+            <button class="btn btn-link btn-sm p-0 text-decoration-none" :disabled="reenviando" @click="reenviar">
+              {{ reenviando ? 'Enviando...' : 'Reenviar código' }}
+            </button>
+          </p>
+          <div v-if="mensagemReenvio" class="small mt-2 text-success-emphasis">{{ mensagemReenvio }}</div>
+          <div v-if="erroReenvio" class="small mt-2 text-danger-emphasis">{{ erroReenvio }}</div>
         </template>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { confirmarEmail } from '../services/autenticacaoService'
+import { confirmarEmail, reenviarConfirmacaoAlteracaoEmail, reenviarVerificacao } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 
 const route = useRoute()
-const carregando = ref(true)
+const tipoAlteracao = route.query.tipo === 'alteracao'
+
+const digitos = reactive(Array(6).fill(''))
+const inputs = ref([])
+
 const sucesso = ref(false)
+const confirmando = ref(false)
 const erro = ref('')
+const reenviando = ref(false)
+const mensagemReenvio = ref('')
+const erroReenvio = ref('')
 
-onMounted(async () => {
-  const token = route.query.token
+const codigoCompleto = computed(() => digitos.join(''))
 
-  if (!token) {
-    erro.value = 'Nenhum token de verificação foi encontrado na URL.'
-    carregando.value = false
-    return
+function aoDigitar(index, event) {
+  const valor = event.target.value.replace(/\D/g, '')
+  digitos[index] = valor.slice(-1)
+
+  if (valor && index < 5) {
+    inputs.value[index + 1]?.focus()
   }
+}
+
+function aoApertarTecla(index, event) {
+  if (event.key === 'Backspace' && !digitos[index] && index > 0) {
+    inputs.value[index - 1]?.focus()
+  }
+}
+
+function aoColar(event) {
+  const texto = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '')
+  if (!texto) return
+  for (let i = 0; i < 6; i++) {
+    digitos[i] = texto[i] || ''
+  }
+  inputs.value[Math.min(texto.length, 5)]?.focus()
+}
+
+async function confirmar() {
+  if (codigoCompleto.value.length < 6) return
+  erro.value = ''
+  confirmando.value = true
 
   try {
-    await confirmarEmail(token)
+    await confirmarEmail(codigoCompleto.value)
     sucesso.value = true
   } catch (e) {
-    erro.value = extrairMensagemErro(e, 'O link é inválido ou já expirou. Solicite um novo e-mail de verificação.')
+    erro.value = extrairMensagemErro(e, 'Código inválido ou expirado. Tente novamente.')
+    digitos.fill('')
+    inputs.value[0]?.focus()
   } finally {
-    carregando.value = false
+    confirmando.value = false
   }
-})
+}
+
+async function reenviar() {
+  mensagemReenvio.value = ''
+  erroReenvio.value = ''
+  reenviando.value = true
+
+  try {
+    if (tipoAlteracao) {
+      await reenviarConfirmacaoAlteracaoEmail()
+    } else {
+      await reenviarVerificacao()
+    }
+    mensagemReenvio.value = 'Novo código enviado com sucesso!'
+  } catch (e) {
+    erroReenvio.value = extrairMensagemErro(e, 'Não foi possível reenviar o código.')
+  } finally {
+    reenviando.value = false
+  }
+}
 </script>

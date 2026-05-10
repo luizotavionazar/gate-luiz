@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
@@ -36,4 +37,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Usuario u SET u.ultimoLogin = :ultimoLogin WHERE u.id = :id")
     void atualizarUltimoLogin(@Param("id") Integer id, @Param("ultimoLogin") LocalDateTime ultimoLogin);
+
+    @Query("SELECT u.id FROM Usuario u WHERE u.emailVerificado = false AND u.dataCriacao < :limite")
+    List<Integer> findIdsNaoVerificadosAntigos(@Param("limite") LocalDateTime limite);
 }
