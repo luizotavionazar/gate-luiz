@@ -35,11 +35,10 @@
               <strong>Alteração de e-mail pendente!</strong><br>
               Confirme a alteração para <strong>{{ conta.emailPendente }}</strong>.
             </div>
-            <button class="btn btn-sm btn-info flex-shrink-0" :disabled="solicitandoConfirmacaoAlteracao" @click="solicitarConfirmacaoAlteracao">
-              {{ solicitandoConfirmacaoAlteracao ? 'Enviando...' : 'Confirmar alteração' }}
+            <button class="btn btn-sm btn-info flex-shrink-0" @click="solicitarConfirmacaoAlteracao">
+              Confirmar alteração
             </button>
           </div>
-          <div v-if="erroSolicitarConfirmacaoAlteracao" class="small mt-2 text-danger-emphasis">{{ erroSolicitarConfirmacaoAlteracao }}</div>
         </div>
         <div class="card shadow border-0 rounded-4 mb-4">
           <div class="card-body p-4">
@@ -383,7 +382,6 @@ import {
   getToken,
   logout,
   marcarSenhaNaSessao,
-  reenviarConfirmacaoAlteracaoEmail,
   reenviarVerificacao,
   vincularGoogle
 } from '../services/autenticacaoService'
@@ -416,8 +414,6 @@ const erroTelefone = ref('')
 
 const solicitandoVerificacao = ref(false)
 const erroSolicitarVerificacao = ref('')
-const solicitandoConfirmacaoAlteracao = ref(false)
-const erroSolicitarConfirmacaoAlteracao = ref('')
 
 const googleVincularButtonRef = ref(null)
 const mensagemGoogle = ref('')
@@ -539,7 +535,7 @@ async function salvarEmail() {
     conta.value = await atualizarMeuEmail({ email: formEmail.email.trim() })
     atualizarSessaoComConta(conta.value)
     if (conta.value.emailPendente) {
-      mensagemEmail.value = `Verifique sua caixa de entrada!`
+      router.push({ path: '/verificar-email', query: { tipo: 'alteracao' } })
     } else {
       mensagemEmail.value = 'E-mail atualizado com sucesso.'
     }
@@ -584,17 +580,8 @@ async function solicitarVerificacao() {
   }
 }
 
-async function solicitarConfirmacaoAlteracao() {
-  erroSolicitarConfirmacaoAlteracao.value = ''
-  solicitandoConfirmacaoAlteracao.value = true
-  try {
-    await reenviarConfirmacaoAlteracaoEmail()
-    router.push({ path: '/verificar-email', query: { tipo: 'alteracao' } })
-  } catch (e) {
-    erroSolicitarConfirmacaoAlteracao.value = extrairMensagemErro(e, 'Não foi possível enviar o código de confirmação.')
-  } finally {
-    solicitandoConfirmacaoAlteracao.value = false
-  }
+function solicitarConfirmacaoAlteracao() {
+  router.push({ path: '/verificar-email', query: { tipo: 'alteracao' } })
 }
 
 async function salvarSenha() {

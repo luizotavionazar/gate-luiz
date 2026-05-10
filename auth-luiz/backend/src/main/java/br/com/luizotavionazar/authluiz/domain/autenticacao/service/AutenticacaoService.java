@@ -42,7 +42,6 @@ public class AutenticacaoService {
     private final PoliticaSenhaService politicaSenhaService;
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final TokenRecuperacaoSenhaExpiracaoService tokenRecuperacaoSenhaExpiracaoService;
-    private final TokenConfirmacaoService tokenConfirmacaoService;
 
     private static final long COOLDOWN_TOKEN_MINUTES = 2;
     private static final long EXPIRACAO_TOKEN_MINUTES = 5;

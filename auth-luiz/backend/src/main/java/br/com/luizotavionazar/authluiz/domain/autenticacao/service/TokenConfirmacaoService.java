@@ -37,7 +37,7 @@ public class TokenConfirmacaoService {
                 LocalDateTime.now().plusMinutes(EXPIRACAO_CODIGO_MINUTES));
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public TokenConfirmacao buscarTokenValidoPorUsuario(Integer idUsuario, TipoTokenConfirmacao tipo, String codigo) {
         TokenConfirmacao token = tokenConfirmacaoRepository
                 .findFirstByUsuarioIdAndTipoAndConfirmadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(idUsuario, tipo)
