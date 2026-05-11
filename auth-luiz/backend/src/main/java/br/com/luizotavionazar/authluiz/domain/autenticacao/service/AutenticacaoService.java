@@ -3,15 +3,13 @@ package br.com.luizotavionazar.authluiz.domain.autenticacao.service;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.*;
 import br.com.luizotavionazar.authluiz.api.common.exception.ExcecaoLimiteTentativas;
 import br.com.luizotavionazar.authluiz.config.security.JwtService;
-import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.ControleRecuperacaoSenha;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenRecuperacaoSenha;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.event.UsuarioCadastradoEvent;
-import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.ControleRecuperacaoSenhaRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenRecuperacaoSenhaRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.util.TokenUtils;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
-import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
+import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
@@ -24,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
@@ -38,16 +35,13 @@ public class AutenticacaoService {
     private final ApplicationEventPublisher eventPublisher;
     private final TokenRecuperacaoSenhaRepository tokenRecuperacaoSenhaRepository;
     private final EmailService emailService;
-    private final ControleRecuperacaoSenhaRepository controleRecuperacaoSenhaRepository;
+    private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
     private final PoliticaSenhaService politicaSenhaService;
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final TokenRecuperacaoSenhaExpiracaoService tokenRecuperacaoSenhaExpiracaoService;
 
     private static final long COOLDOWN_TOKEN_MINUTES = 2;
     private static final long EXPIRACAO_TOKEN_MINUTES = 5;
-    private static final long JANELA_IP_MINUTES = 10;
-    private static final int LIMITE_TENTATIVAS_IP = 5;
-    private static final long BLOQUEIO_IP_MINUTES = 2;
     private static final int MAX_TENTATIVAS_RECUPERACAO = 5;
 
     static final String MSG_CREDENCIAIS_INVALIDAS = "E-mail/telefone ou senha incorretos!";
@@ -107,7 +101,7 @@ public class AutenticacaoService {
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
     public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request, String ip) {
-        validarLimitePorIp(ip);
+        envioCodigoRateLimitService.validarLimitePorIp(ip);
 
         String emailNormalizado = request.emailNormalizado();
 
@@ -219,52 +213,5 @@ public class AutenticacaoService {
     private MensagemResponse mensagemGenericaRecuperacao() {
         return new MensagemResponse(
                 "Enviaremos as instruções de recuperação caso exista uma conta vinculada a esse e-mail!");
-    }
-
-    private void validarLimitePorIp(String ip) {
-        LocalDateTime agora = LocalDateTime.now();
-
-        ControleRecuperacaoSenha controle = controleRecuperacaoSenhaRepository.findByIp(ip)
-                .orElseGet(() -> ControleRecuperacaoSenha.builder()
-                        .ip(ip)
-                        .janelaInicio(agora)
-                        .quantidade(0)
-                        .build());
-
-        if (controle.getBloqueadoAte() != null && agora.isBefore(controle.getBloqueadoAte())) {
-            long retryAfterSeconds = Duration.between(agora, controle.getBloqueadoAte()).toSeconds();
-            long minutosRestantes = Math.max(1, (retryAfterSeconds + 59) / 60);
-            throw new ExcecaoLimiteTentativas(
-                    "Foram realizadas muitas solicitações de recuperação a partir deste dispositivo ou rede. Tente novamente em cerca de "
-                            + minutosRestantes + " minuto(s)!",
-                    retryAfterSeconds);
-        }
-
-        if (controle.getJanelaInicio() == null
-                || agora.isAfter(controle.getJanelaInicio().plusMinutes(JANELA_IP_MINUTES))) {
-            controle.setJanelaInicio(agora);
-            controle.setQuantidade(1);
-            controle.setBloqueadoAte(null);
-            controleRecuperacaoSenhaRepository.save(controle);
-            return;
-        }
-
-        int novaQuantidade = controle.getQuantidade() + 1;
-        controle.setQuantidade(novaQuantidade);
-
-        if (novaQuantidade > LIMITE_TENTATIVAS_IP) {
-            LocalDateTime bloqueadoAte = agora.plusMinutes(BLOQUEIO_IP_MINUTES);
-            controle.setBloqueadoAte(bloqueadoAte);
-            controleRecuperacaoSenhaRepository.save(controle);
-
-            long retryAfterSeconds = Duration.between(agora, bloqueadoAte).toSeconds();
-            long minutosRestantes = Math.max(1, (retryAfterSeconds + 59) / 60);
-            throw new ExcecaoLimiteTentativas(
-                    "Foram realizadas muitas solicitações de recuperação a partir deste dispositivo ou rede. Tente novamente em cerca de "
-                            + minutosRestantes + " minuto(s)!",
-                    retryAfterSeconds);
-        }
-
-        controleRecuperacaoSenhaRepository.save(controle);
     }
 }

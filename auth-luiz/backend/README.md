@@ -76,7 +76,7 @@ src/main/java/.../authluiz/
 │   ├── autenticacao/
 │   │   ├── entity/
 │   │   │   ├── TokenRecuperacaoSenha    Token hasheado (SHA-256) para redefinição de senha
-│   │   │   ├── ControleRecuperacaoSenha Rate limiting de recuperação por IP
+│   │   │   ├── ControleEnvioCodigoIp    Rate limiting por IP para qualquer envio de código (e-mail ou futuro SMS/WhatsApp)
 │   │   │   ├── TokenConfirmacao         Token hasheado para verificação de cadastro e alteração de e-mail
 │   │   │   ├── TipoTokenConfirmacao     Enum: VERIFICACAO_CADASTRO | ALTERACAO_EMAIL
 │   │   │   ├── ControleAlteracaoEmail   Rate limiting de alteração de e-mail por usuário
@@ -89,6 +89,7 @@ src/main/java/.../authluiz/
 │   │   │   ├── ConfirmacaoService       Confirmação e reenvio de e-mail de verificação
 │   │   │   ├── TokenConfirmacaoService  Criação, validação e encerramento de tokens de confirmação
 │   │   │   ├── TokenRecuperacaoSenhaService  Fluxo de recuperação de senha
+│   │   │   ├── EnvioCodigoRateLimitService  Rate limiting por IP para todos os envios de código (e-mail e futuro SMS/WhatsApp)
 │   │   │   ├── PoliticaSenhaService     Validação de força de senha
 │   │   │   ├── ConfirmacaoEmailExpiracaoService  @Scheduled — remove contas não confirmadas após 7 dias
 │   │   │   └── TokenRecuperacaoSenhaExpiracaoService  @Scheduled — limpa tokens expirados
@@ -137,6 +138,7 @@ src/main/java/.../authluiz/
 | `V5__ultimo_login_usuario.sql`      | Adiciona coluna `ultimoLogin` (TIMESTAMP WITH TIME ZONE, nullable) à tabela `usuario` |
 | `V6__tentativas_erradas_tokens.sql` | Adiciona coluna `tentativasErradas` (SMALLINT, default 0) às tabelas `tokenConfirmacao` e `tokenRecuperacaoSenha` |
 | `V7__tentativas_erradas_integer.sql` | Converte `tentativasErradas` de SMALLINT para INTEGER nas duas tabelas (alinha com o tipo Java `int`) |
+| `V8__renomear_controle_recuperacao_senha.sql` | Renomeia tabela `controleRecuperacaoSenha` → `controleEnvioCodigoIp` (rate limiting agora é agnóstico ao canal) |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 

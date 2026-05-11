@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
-@Table(name = "controleRecuperacaoSenha")
-public class ControleRecuperacaoSenha {
+@Table(name = "controleEnvioCodigoIp")
+public class ControleEnvioCodigoIp {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

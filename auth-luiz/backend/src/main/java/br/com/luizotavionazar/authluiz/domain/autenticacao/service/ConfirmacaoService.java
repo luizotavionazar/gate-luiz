@@ -1,6 +1,7 @@
 package br.com.luizotavionazar.authluiz.domain.autenticacao.service;
 
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
+import br.com.luizotavionazar.authluiz.api.common.exception.ExcecaoLimiteTentativas;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenConfirmacao;
@@ -20,6 +21,7 @@ public class ConfirmacaoService {
     private final TokenConfirmacaoService tokenConfirmacaoService;
     private final UsuarioRepository usuarioRepository;
     private final EmailService emailService;
+    private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public void confirmarEmail(Integer idUsuario, String codigo) {
@@ -48,7 +50,7 @@ public class ConfirmacaoService {
         tokenConfirmacaoService.confirmar(token);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
     public MensagemResponse reenviarVerificacao(Integer idUsuario, String ip) {
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
@@ -56,6 +58,8 @@ public class ConfirmacaoService {
         if (usuario.isEmailVerificado()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O e-mail desta conta já foi verificado!");
         }
+
+        envioCodigoRateLimitService.validarLimitePorIp(ip);
 
         if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.VERIFICACAO_CADASTRO)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
@@ -68,7 +72,7 @@ public class ConfirmacaoService {
         return new MensagemResponse("E-mail de verificação reenviado com sucesso!");
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
     public MensagemResponse reenviarConfirmacaoAlteracaoEmail(Integer idUsuario, String ip) {
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
@@ -76,6 +80,8 @@ public class ConfirmacaoService {
         if (usuario.getEmailPendente() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não há alteração de e-mail pendente.");
         }
+
+        envioCodigoRateLimitService.validarLimitePorIp(ip);
 
         if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,

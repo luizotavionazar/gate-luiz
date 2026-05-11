@@ -9,8 +9,10 @@ import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarTelefoneRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.ControleAlteracaoEmail;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
+import br.com.luizotavionazar.authluiz.api.common.exception.ExcecaoLimiteTentativas;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.ControleAlteracaoEmailRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenRecuperacaoSenhaRepository;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.EnvioCodigoRateLimitService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.PoliticaSenhaService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.TokenConfirmacaoService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
@@ -44,6 +46,7 @@ public class ContaService {
     private final TokenConfirmacaoService tokenConfirmacaoService;
     private final ControleAlteracaoEmailRepository controleAlteracaoEmailRepository;
     private final EmailService emailService;
+    private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
 
     @Transactional
     public ContaResponse obterMinhaConta(Integer idUsuario) {
@@ -78,7 +81,7 @@ public class ContaService {
         return ContaResponse.from(usuario, temLoginGoogle);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
     public ContaResponse atualizarEmail(Integer idUsuario, AtualizarEmailRequest request, String ip) {
         Usuario usuario = buscarUsuario(idUsuario);
 
@@ -104,6 +107,8 @@ public class ContaService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Confirme seu e-mail atual antes de solicitar uma alteração!");
         }
+
+        envioCodigoRateLimitService.validarLimitePorIp(ip);
 
         if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
