@@ -64,6 +64,9 @@ public class Usuario implements UserDetails {
     @Column(name = "telefoneVerificado", nullable = false)
     private boolean telefoneVerificado = false;
 
+    @Column(name = "telefonePendente", length = 20)
+    private String telefonePendente;
+
     @Column(name = "ultimoLogin")
     private LocalDateTime ultimoLogin;
 

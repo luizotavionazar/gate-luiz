@@ -77,7 +77,7 @@ docker compose up --build
 - **Confirmação de e-mail:** Sempre obrigatória — não há flag de configuração. Usa **código numérico de 6 dígitos** enviado por e-mail (não links). **Cadastro** envia apenas um e-mail de boas-vindas; o código de verificação é gerado e enviado sob demanda — o usuário solicita clicando em "Confirmar e-mail" na tela de conta, que aciona `POST /auth/verificacao/reenviar`. Usuário não confirmado não pode alterar e-mail, senha ou telefone; contas não confirmadas são verificadas a cada hora pelo `ConfirmacaoEmailExpiracaoService` (`@Scheduled`) e removidas se mais antigas que 7 dias. **Alteração de e-mail** usa `emailPendente` + código (5 min); o e-mail só é trocado após inserção correta do código. Em ambos os casos o usuário insere o código em `POST /auth/verificacao/confirmar` (JWT) — o backend detecta automaticamente o tipo pendente (`VERIFICACAO_CADASTRO` ou `ALTERACAO_EMAIL`). Proteção contra brute-force: após 5 tentativas erradas o código é bloqueado e exige reenvio. Rate limiting de alteração de e-mail por usuário via `ControleAlteracaoEmail` (máx. 5 por 1440 min, bloqueio de 1440 min). Cooldown de reenvio: 2 minutos (mesmo mecanismo do `TokenConfirmacaoService`). Códigos expiram em 5 minutos e são invalidados ao serem substituídos por um novo reenvio. Códigos são hasheados via `TokenUtils.gerarHash()` antes de armazenar. `@EnableScheduling` está ativo na `AuthLuizApplication`.
 - **Rate limiting de envio de código por IP:** Todos os endpoints que disparam envio ou reenvio de código (recuperação de senha, verificação de cadastro, alteração de e-mail) passam pelo `EnvioCodigoRateLimitService.validarLimitePorIp` antes de qualquer envio. O controle é armazenado em `ControleEnvioCodigoIp` (máx. 5 solicitações por 10 min por IP, bloqueio de 2 min). O serviço é agnóstico ao canal — foi projetado para cobrir também o futuro envio de OTP por telefone sem necessidade de refatoração.
 
-**Migrações de banco:** Flyway (`db/migration/V*.sql`). O schema usa identificadores camelCase entre aspas (Hibernate `PhysicalNamingStrategyStandardImpl` + `globally_quoted_identifiers=true`). O DDL está como `validate` — sempre crie um novo arquivo de migração para alterações no schema. `V1__schema_inicial.sql` contém o schema base; V2–V8 aplicam alterações incrementais.
+**Migrações de banco:** Flyway (`db/migration/V*.sql`). O schema usa identificadores camelCase entre aspas (Hibernate `PhysicalNamingStrategyStandardImpl` + `globally_quoted_identifiers=true`). O DDL está como `validate` — sempre crie um novo arquivo de migração para alterações no schema. `V1__schema_inicial.sql` contém o schema base; V2–V10 aplicam alterações incrementais.
 
 **Testes:** Utilizam Testcontainers com uma instância real de Postgres (sem mocks).
 
@@ -109,9 +109,10 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | PATCH | `/auth/me/senha` | JWT | Atualiza ou define senha (bloqueado se e-mail não verificado) |
 | PATCH | `/auth/me/telefone` | JWT | Atualiza ou remove telefone (null remove; sempre define `telefoneVerificado=false`; bloqueado se e-mail não verificado) |
 | DELETE | `/auth/me` | JWT | Exclui a conta do usuário autenticado (sempre permitido, independente do status de verificação) |
-| POST | `/auth/verificacao/confirmar` | JWT | Confirma e-mail via código de 6 dígitos — body: `{codigo}`; backend detecta automaticamente o tipo pendente (cadastro ou alteração de e-mail) |
-| POST | `/auth/verificacao/reenviar` | JWT | Reenvia e-mail de verificação de cadastro (cooldown de 2 min) |
-| POST | `/auth/verificacao/reenviar-alteracao-email` | JWT | Reenvia e-mail de confirmação de alteração de e-mail (cooldown de 2 min) |
+| POST | `/auth/verificacao/email/confirmar` | JWT | Confirma e-mail via código de 6 dígitos — body: `{codigo}`; detecta automaticamente o tipo pendente (cadastro ou alteração de e-mail) |
+| POST | `/auth/verificacao/email/enviar` | JWT | Envia código de e-mail — detecta automaticamente o pendente: cadastro (`emailVerificado=false`) ou alteração (`emailPendente!=null`); cooldown de 2 min |
+| POST | `/auth/verificacao/telefone/confirmar` | JWT | Confirma alteração de telefone via código de 6 dígitos — body: `{codigo}` |
+| POST | `/auth/verificacao/telefone/enviar` | JWT | Envia código de verificação de telefone via WhatsApp/SMS (cooldown de 2 min) |
 | GET/POST | `/setup/**` | Chave mestra | Configuração inicial da aplicação |
 | GET | `/auth/.well-known/jwks.json` | Pública | Chave pública RSA em formato JWKS (usada por serviços externos para validar JWTs) |
 | GET | `/auth/interno/usuarios` | X-Service-Key | Lista todos os usuários — endpoint server-to-server, protegido por header `X-Service-Key` (não aceita JWT) |
@@ -182,14 +183,20 @@ As tabelas `tokenRecuperacaoSenha`, `identidadeExterna`, `tokenConfirmacao` e `c
 
 ## Telefone do Usuário
 
-A entidade `Usuario` possui os campos `telefone` (VARCHAR 20, nullable, único, formato E.164: `+5511987654321`) e `telefoneVerificado` (boolean, default false). O campo é opcional no cadastro e atualizável via `PATCH /auth/me/telefone` (null remove o número). Sempre que o número é alterado, `telefoneVerificado` volta a `false`. Dois usuários não podem ter o mesmo telefone — a unicidade é validada na camada de serviço (409 Conflict) e reforçada por constraint no banco (`uq_usuario_telefone`). Múltiplos `NULL` são permitidos (comportamento padrão do PostgreSQL).
+A entidade `Usuario` possui os campos `telefone` (VARCHAR 20, nullable, único, formato E.164: `+5511987654321`), `telefoneVerificado` (boolean, default false) e `telefonePendente` (VARCHAR 20, nullable). O campo é opcional no cadastro e atualizável via `PATCH /auth/me/telefone`.
 
-**Verificação e recuperação de senha via telefone ainda não implementadas.** A estrutura foi adicionada antecipadamente. Quando implementar:
-- Provider recomendado: **Twilio** (suporta WhatsApp Business API + SMS com o mesmo SDK) ou **Zenvia** (alternativa BR).
-- Fluxo de verificação: OTP de 6 dígitos, expiração 10 min, `telefoneVerificado = true` ao confirmar.
-- Recuperação: se `telefoneVerificado = true`, oferecer link/código via WhatsApp (fallback SMS).
-- Credenciais do provider devem ser adicionadas à `configuracaoAplicacao` e criptografadas como o SMTP.
-- Envio sempre `@Async`, seguindo o padrão do `EmailService`.
+**Fluxo de alteração de telefone (2 etapas — espelhando o e-mail):**
+1. `PATCH /auth/me/telefone` — valida disponibilidade do Twilio (503 se não configurado), salva o novo número em `telefonePendente`, cria token `ALTERACAO_TELEFONE` e envia código via Twilio. O campo `telefone` permanece inalterado até a confirmação.
+2. `POST /auth/verificacao/telefone/confirmar` — valida o código, move `telefonePendente` → `telefone`, define `telefoneVerificado = true`.
+3. `POST /auth/verificacao/telefone/enviar` — reenvia o código (valida disponibilidade Twilio antes de criar novo token; cooldown de 2 min, rate limit por IP).
+
+Regras: requer `emailVerificado = true`; código de 6 dígitos expira em 5 min; máx 5 tentativas erradas bloqueiam o token; remoção de telefone (body `{telefone: null}`) é direta, sem verificação. Dois usuários não podem ter o mesmo `telefone` — unicidade validada no serviço (409) e no banco (`uq_usuario_telefone`). `telefonePendente` expirado é limpo automaticamente em `GET /auth/me`.
+
+**Provider SMS:** Twilio (SDK `com.twilio.sdk:twilio`). Interface `NotificacaoTelefonePort` em `domain/notificacao/port/` — `TwilioAdapter` é a implementação atual (`@Primary`). A interface define dois métodos: `validarDisponibilidade()` (síncrono — lança HTTP 503 se credenciais não configuradas) e `enviarCodigoVerificacao()` (`@Async` — erros de API Twilio são logados, não propagados ao HTTP). Credenciais via variáveis de ambiente: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `TWILIO_CANAL` (padrão: `whatsapp`). **Comportamento quando credenciais ausentes:** `validarDisponibilidade()` é chamado sincronamente antes de qualquer persistência (antes de salvar `telefonePendente` ou criar token) — retorna HTTP 503 ao cliente e não salva nenhum estado. Falhas na API Twilio (credenciais configuradas mas envio falha) são logadas sem interromper o fluxo. Trocar de provedor = novo adapter implementando `NotificacaoTelefonePort`, sem alterar domínio.
+
+**Formato de número brasileiro no WhatsApp:** contas criadas antes de 2012 podem estar registradas no WhatsApp sem o 9º dígito (ex: `+553898286294` em vez de `+5538998286294`). O Twilio envia para o número exatamente como cadastrado no banco — se o usuário cadastrou com o 9 mas o WhatsApp reconhece sem ele (ou vice-versa), a mensagem não será entregue. Não há como detectar isso automaticamente; o usuário deve cadastrar o número no formato em que está registrado no WhatsApp.
+
+**Recuperação de senha via telefone ainda não implementada.** Se `telefoneVerificado = true`, futuramente poderá oferecer OTP via SMS/WhatsApp como alternativa ao e-mail.
 
 ## Auditoria de Logs
 

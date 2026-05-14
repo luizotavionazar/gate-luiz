@@ -35,6 +35,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     void atualizarEmailPendente(@Param("id") Integer id, @Param("emailPendente") String emailPendente);
 
     @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.telefonePendente = :telefonePendente WHERE u.id = :id")
+    void atualizarTelefonePendente(@Param("id") Integer id, @Param("telefonePendente") String telefonePendente);
+
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE Usuario u SET u.ultimoLogin = :ultimoLogin WHERE u.id = :id")
     void atualizarUltimoLogin(@Param("id") Integer id, @Param("ultimoLogin") LocalDateTime ultimoLogin);
 

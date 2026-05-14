@@ -16,6 +16,7 @@ public record ContaResponse(
         String providerOrigem,
         String telefone,
         Boolean telefoneVerificado,
+        String telefonePendente,
         LocalDateTime dataCriacao,
         LocalDateTime dataAtualiza) {
     public static ContaResponse from(Usuario usuario, boolean temLoginGoogle) {
@@ -31,6 +32,7 @@ public record ContaResponse(
                 provider != null ? provider.name() : null,
                 usuario.getTelefone(),
                 usuario.isTelefoneVerificado(),
+                usuario.getTelefonePendente(),
                 usuario.getDataCriacao(),
                 usuario.getDataAtualiza());
     }

@@ -26,14 +26,21 @@ public class TokenConfirmacaoService {
     @Transactional
     public String criarTokenVerificacaoCadastro(Usuario usuario, String ip) {
         encerrarTokensAbertos(usuario.getId(), TipoTokenConfirmacao.VERIFICACAO_CADASTRO);
-        return criarToken(usuario, TipoTokenConfirmacao.VERIFICACAO_CADASTRO, null, ip,
+        return criarToken(usuario, TipoTokenConfirmacao.VERIFICACAO_CADASTRO, null, null, ip,
                 LocalDateTime.now().plusMinutes(EXPIRACAO_CODIGO_MINUTES));
     }
 
     @Transactional
     public String criarTokenAlteracaoEmail(Usuario usuario, String novoEmail, String ip) {
         encerrarTokensAbertos(usuario.getId(), TipoTokenConfirmacao.ALTERACAO_EMAIL);
-        return criarToken(usuario, TipoTokenConfirmacao.ALTERACAO_EMAIL, novoEmail, ip,
+        return criarToken(usuario, TipoTokenConfirmacao.ALTERACAO_EMAIL, novoEmail, null, ip,
+                LocalDateTime.now().plusMinutes(EXPIRACAO_CODIGO_MINUTES));
+    }
+
+    @Transactional
+    public String criarTokenAlteracaoTelefone(Usuario usuario, String novoTelefone, String ip) {
+        encerrarTokensAbertos(usuario.getId(), TipoTokenConfirmacao.ALTERACAO_TELEFONE);
+        return criarToken(usuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE, null, novoTelefone, ip,
                 LocalDateTime.now().plusMinutes(EXPIRACAO_CODIGO_MINUTES));
     }
 
@@ -46,7 +53,7 @@ public class TokenConfirmacaoService {
 
         if (token.expirado()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Código expirado. Solicite um novo e-mail de verificação.");
+                    "Código expirado. Solicite um novo código de verificação.");
         }
 
         String codigoHash = TokenUtils.gerarHash(codigo);
@@ -56,7 +63,7 @@ public class TokenConfirmacaoService {
                 token.setEncerradoEm(LocalDateTime.now());
                 tokenConfirmacaoRepository.saveAndFlush(token);
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Código bloqueado após muitas tentativas incorretas. Solicite um novo e-mail de verificação.");
+                        "Código bloqueado após muitas tentativas incorretas. Solicite um novo código de verificação.");
             }
             tokenConfirmacaoRepository.saveAndFlush(token);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código inválido!");
@@ -89,7 +96,7 @@ public class TokenConfirmacaoService {
                 .orElse(false);
     }
 
-    private String criarToken(Usuario usuario, TipoTokenConfirmacao tipo, String emailDestino, String ip, LocalDateTime expiraEm) {
+    private String criarToken(Usuario usuario, TipoTokenConfirmacao tipo, String emailDestino, String telefoneDestino, String ip, LocalDateTime expiraEm) {
         String codigoBruto = TokenUtils.gerarCodigoNumerico6Digitos();
         String codigoHash = TokenUtils.gerarHash(codigoBruto);
 
@@ -98,6 +105,7 @@ public class TokenConfirmacaoService {
                 .tipo(tipo)
                 .tokenHash(codigoHash)
                 .emailDestino(emailDestino)
+                .telefoneDestino(telefoneDestino)
                 .expiraEm(expiraEm)
                 .ipSolicitacao(ip)
                 .build();

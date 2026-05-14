@@ -47,6 +47,27 @@
       "type": "java.lang.Integer",
       "description": "Quantidade de dias para reter registros de auditoria antes da exclusão automática diária.",
       "defaultValue": 90
+    },
+    {
+      "name": "twilio.account-sid",
+      "type": "java.lang.String",
+      "description": "Account SID do Twilio usado para autenticar chamadas à API de SMS."
+    },
+    {
+      "name": "twilio.auth-token",
+      "type": "java.lang.String",
+      "description": "Auth Token do Twilio (credencial secreta). Manter em variável de ambiente, nunca em código-fonte."
+    },
+    {
+      "name": "twilio.from-number",
+      "type": "java.lang.String",
+      "description": "Número Twilio remetente no formato E.164. Para WhatsApp sandbox use +14155238886; para SMS use o número comprado."
+    },
+    {
+      "name": "twilio.canal",
+      "type": "java.lang.String",
+      "description": "Canal de envio de mensagens Twilio: 'whatsapp' ou 'sms'. Padrão: whatsapp.",
+      "defaultValue": "whatsapp"
     }
   ]
 }

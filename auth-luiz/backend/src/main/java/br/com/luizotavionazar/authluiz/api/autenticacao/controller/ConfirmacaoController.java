@@ -21,8 +21,10 @@ public class ConfirmacaoController {
 
     private final ConfirmacaoService confirmacaoService;
 
+    // ── E-mail ────────────────────────────────────────────────────────────────
+
     @Auditavel(acao = AcaoAuditoria.EMAIL_CONFIRMADO, categoria = CategoriaAuditoria.SEGURANCA)
-    @PostMapping("/confirmar")
+    @PostMapping("/email/confirmar")
     public ResponseEntity<MensagemResponse> confirmarEmail(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ConfirmarEmailRequest request
@@ -32,23 +34,36 @@ public class ConfirmacaoController {
         return ResponseEntity.ok(new MensagemResponse("E-mail confirmado com sucesso!"));
     }
 
-    @PostMapping("/reenviar")
-    public ResponseEntity<MensagemResponse> reenviarVerificacao(
+    @PostMapping("/email/enviar")
+    public ResponseEntity<MensagemResponse> enviarVerificacaoEmail(
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest httpRequest
     ) {
         Integer idUsuario = Integer.valueOf(jwt.getSubject());
         String ip = httpRequest.getRemoteAddr();
-        return ResponseEntity.ok(confirmacaoService.reenviarVerificacao(idUsuario, ip));
+        return ResponseEntity.ok(confirmacaoService.enviarVerificacaoEmail(idUsuario, ip));
     }
 
-    @PostMapping("/reenviar-alteracao-email")
-    public ResponseEntity<MensagemResponse> reenviarConfirmacaoAlteracaoEmail(
+    // ── Telefone ──────────────────────────────────────────────────────────────
+
+    @Auditavel(acao = AcaoAuditoria.TELEFONE_CONFIRMADO, categoria = CategoriaAuditoria.SEGURANCA)
+    @PostMapping("/telefone/confirmar")
+    public ResponseEntity<MensagemResponse> confirmarTelefone(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody ConfirmarEmailRequest request
+    ) {
+        Integer idUsuario = Integer.valueOf(jwt.getSubject());
+        confirmacaoService.confirmarTelefone(idUsuario, request.codigo());
+        return ResponseEntity.ok(new MensagemResponse("Telefone confirmado com sucesso!"));
+    }
+
+    @PostMapping("/telefone/enviar")
+    public ResponseEntity<MensagemResponse> enviarVerificacaoTelefone(
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest httpRequest
     ) {
         Integer idUsuario = Integer.valueOf(jwt.getSubject());
         String ip = httpRequest.getRemoteAddr();
-        return ResponseEntity.ok(confirmacaoService.reenviarConfirmacaoAlteracaoEmail(idUsuario, ip));
+        return ResponseEntity.ok(confirmacaoService.reenviarConfirmacaoAlteracaoTelefone(idUsuario, ip));
     }
 }

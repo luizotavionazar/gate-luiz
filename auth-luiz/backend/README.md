@@ -24,8 +24,10 @@ src/main/java/.../authluiz/
 │   │   ├── controller/
 │   │   │   ├── AutenticacaoController   POST /auth/cadastro, /auth/login
 │   │   │   │                            POST /auth/recuperacao/iniciar, /auth/recuperacao/redefinir
-│   │   │   └── ConfirmacaoController    POST /auth/verificacao/confirmar (JWT)
-│   │   │                                POST /auth/verificacao/reenviar
+│   │   │   └── ConfirmacaoController    POST /auth/verificacao/email/confirmar (JWT)
+│   │   │                                POST /auth/verificacao/email/enviar (JWT)
+│   │   │                                POST /auth/verificacao/telefone/confirmar (JWT)
+│   │   │                                POST /auth/verificacao/telefone/enviar (JWT)
 │   │   └── dto/                         CadastroRequest/Response, LoginRequest/Response,
 │   │                                    RecuperacaoSenhaRequest, RedefinirSenhaRequest,
 │   │                                    ConfirmarEmailRequest, ContaResponse, MensagemResponse
@@ -78,7 +80,7 @@ src/main/java/.../authluiz/
 │   │   │   ├── TokenRecuperacaoSenha    Token hasheado (SHA-256) para redefinição de senha
 │   │   │   ├── ControleEnvioCodigoIp    Rate limiting por IP para qualquer envio de código (e-mail ou futuro SMS/WhatsApp)
 │   │   │   ├── TokenConfirmacao         Token hasheado para verificação de cadastro e alteração de e-mail
-│   │   │   ├── TipoTokenConfirmacao     Enum: VERIFICACAO_CADASTRO | ALTERACAO_EMAIL
+│   │   │   ├── TipoTokenConfirmacao     Enum: VERIFICACAO_CADASTRO | ALTERACAO_EMAIL | ALTERACAO_TELEFONE
 │   │   │   ├── ControleAlteracaoEmail   Rate limiting de alteração de e-mail por usuário
 │   │   │   └── PoliticaSenha            Regras de complexidade de senha
 │   │   ├── event/   UsuarioCadastradoEvent
@@ -113,8 +115,11 @@ src/main/java/.../authluiz/
 │   │       └── GoogleIdTokenValidatorService  Validação do idToken emitido pelo Google
 │   │
 │   ├── notificacao/
+│   │   ├── port/
+│   │   │   └── NotificacaoTelefonePort  Interface: validarDisponibilidade() (síncrono, 503 se sem credenciais) + enviarCodigoVerificacao() (@Async)
 │   │   └── service/
-│   │       └── EmailService             Envio de e-mails transacionais HTML via JavaMail (todos os métodos são @Async)
+│   │       ├── EmailService             Envio de e-mails transacionais HTML via JavaMail (todos os métodos são @Async)
+│   │       └── TwilioAdapter            Implementação @Primary de NotificacaoTelefonePort via Twilio SDK (WhatsApp ou SMS)
 │   │
 │   └── usuario/
 │       ├── entity/   Usuario            UserDetails do Spring Security; campo providerOrigem
@@ -139,6 +144,8 @@ src/main/java/.../authluiz/
 | `V6__tentativas_erradas_tokens.sql` | Adiciona coluna `tentativasErradas` (SMALLINT, default 0) às tabelas `tokenConfirmacao` e `tokenRecuperacaoSenha` |
 | `V7__tentativas_erradas_integer.sql` | Converte `tentativasErradas` de SMALLINT para INTEGER nas duas tabelas (alinha com o tipo Java `int`) |
 | `V8__renomear_controle_recuperacao_senha.sql` | Renomeia tabela `controleRecuperacaoSenha` → `controleEnvioCodigoIp` (rate limiting agora é agnóstico ao canal) |
+| `V9__telefone_pendente_usuario.sql`           | Adiciona coluna `telefonePendente` (VARCHAR 20, nullable) à tabela `usuario` |
+| `V10__token_confirmacao_telefone_destino.sql` | Adiciona coluna `telefoneDestino` (VARCHAR 20, nullable) à tabela `tokenConfirmacao` |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -158,7 +165,13 @@ GOOGLE_OAUTH_CLIENT_ID=...        # client ID do Google Cloud Console
 AUTH_LUIZ_SERVICE_KEY=...         # chave compartilhada com o PermLuiz para chamadas internas
 AUDITORIA_ATIVIDADE=true          # habilita logs de atividade (padrão: true); logs de segurança sempre ativos
 AUDITORIA_RETENCAO_DIAS=90        # dias de retenção dos logs antes da limpeza automática (padrão: 90)
+TWILIO_ACCOUNT_SID=...            # Account SID do Twilio (obtenha em console.twilio.com)
+TWILIO_AUTH_TOKEN=...             # Auth Token do Twilio
+TWILIO_FROM_NUMBER=...            # Número remetente (+14155238886 para WhatsApp Sandbox)
+TWILIO_CANAL=whatsapp             # Canal: "whatsapp" ou "sms" (padrão: whatsapp)
 ```
+
+> Se as variáveis Twilio não estiverem configuradas, endpoints que iniciam ou reenviam código por telefone retornam HTTP 503. Nenhum estado é persistido nesse caso.
 
 > Gere o par de chaves RSA executando `GerarChavesRSA.java` (disponível na raiz do backend). Consulte `backend/.env.example` para o procedimento completo.
 
@@ -193,11 +206,12 @@ docker compose -f ../compose-dev.yaml up -d
 | PATCH       | `/auth/me/nome`                    | JWT          | Atualiza nome                                      |
 | PATCH       | `/auth/me/email`                   | JWT          | Solicita alteração de e-mail (novo deve diferir do atual; sempre envia confirmação) |
 | PATCH       | `/auth/me/senha`                   | JWT          | Altera ou define senha                             |
-| PATCH       | `/auth/me/telefone`                | JWT          | Atualiza ou remove telefone (null remove; sempre define telefoneVerificado=false) |
+| PATCH       | `/auth/me/telefone`                | JWT          | Inicia alteração de telefone (salva `telefonePendente`, envia código via Twilio; null remove o telefone diretamente; 503 se Twilio não configurado) |
 | DELETE      | `/auth/me`                         | JWT          | Exclui a conta                                     |
-| POST        | `/auth/verificacao/confirmar`      | JWT          | Confirma e-mail via código de 6 dígitos — body: `{codigo}`; backend detecta o tipo pendente (cadastro ou alteração de e-mail) |
-| POST        | `/auth/verificacao/reenviar`       | JWT          | Reenvia e-mail de verificação de cadastro (cooldown: 2 min) |
-| POST        | `/auth/verificacao/reenviar-alteracao-email` | JWT | Reenvia e-mail de confirmação de alteração de e-mail (cooldown: 2 min) |
+| POST        | `/auth/verificacao/email/confirmar` | JWT         | Confirma e-mail via código de 6 dígitos — body: `{codigo}`; detecta automaticamente o tipo pendente (cadastro ou alteração) |
+| POST        | `/auth/verificacao/email/enviar`   | JWT          | Envia código de verificação de e-mail — detecta automaticamente: cadastro (`emailVerificado=false`) ou alteração (`emailPendente!=null`); cooldown: 2 min |
+| POST        | `/auth/verificacao/telefone/confirmar` | JWT      | Confirma alteração de telefone via código de 6 dígitos — move `telefonePendente` → `telefone`, define `telefoneVerificado=true` |
+| POST        | `/auth/verificacao/telefone/enviar` | JWT         | Reenvia código de verificação por WhatsApp/SMS (503 se Twilio não configurado; cooldown: 2 min) |
 | GET / POST  | `/setup/**`                        | Chave mestra | Configuração inicial                               |
 | GET         | `/auth/.well-known/jwks.json`      | Pública      | Chave pública RSA no formato JWKS (usado pelo PermLuiz para validar JWTs) |
 | GET         | `/auth/interno/usuarios`           | X-Service-Key | Lista todos os usuários — endpoint server-to-server, não aceita JWT |

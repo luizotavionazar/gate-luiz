@@ -18,6 +18,7 @@ import br.com.luizotavionazar.authluiz.domain.autenticacao.service.TokenConfirma
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
+import br.com.luizotavionazar.authluiz.domain.notificacao.port.NotificacaoTelefonePort;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
@@ -46,6 +47,7 @@ public class ContaService {
     private final TokenConfirmacaoService tokenConfirmacaoService;
     private final ControleAlteracaoEmailRepository controleAlteracaoEmailRepository;
     private final EmailService emailService;
+    private final NotificacaoTelefonePort notificacaoTelefonePort;
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
 
     @Transactional
@@ -56,6 +58,12 @@ public class ContaService {
                 && !tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
             usuarioRepository.atualizarEmailPendente(idUsuario, null);
             usuario.setEmailPendente(null);
+        }
+
+        if (usuario.getTelefonePendente() != null
+                && !tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE)) {
+            usuarioRepository.atualizarTelefonePendente(idUsuario, null);
+            usuario.setTelefonePendente(null);
         }
 
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
@@ -127,8 +135,8 @@ public class ContaService {
         return ContaResponse.from(usuario, temLoginGoogle);
     }
 
-    @Transactional
-    public ContaResponse atualizarTelefone(Integer idUsuario, AtualizarTelefoneRequest request) {
+    @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
+    public ContaResponse atualizarTelefone(Integer idUsuario, AtualizarTelefoneRequest request, String ip) {
         Usuario usuario = buscarUsuario(idUsuario);
 
         if (!usuario.isEmailVerificado()) {
@@ -140,20 +148,44 @@ public class ContaService {
                 ? request.telefone().trim()
                 : null;
 
-        if (telefoneNormalizado != null
-                && usuarioRepository.existsByTelefoneAndIdNot(telefoneNormalizado, idUsuario)) {
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
+                ProviderExterno.GOOGLE);
+
+        // Remoção direta — sem verificação necessária
+        if (telefoneNormalizado == null) {
+            usuario.setTelefone(null);
+            usuario.setTelefonePendente(null);
+            usuario.setTelefoneVerificado(false);
+            usuarioRepository.save(usuario);
+            AuditoriaService.definirDetalhes("Telefone removido");
+            return ContaResponse.from(usuario, temLoginGoogle);
+        }
+
+        if (telefoneNormalizado.equals(usuario.getTelefone())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "O novo telefone deve ser diferente do telefone atual!");
+        }
+
+        if (usuarioRepository.existsByTelefoneAndIdNot(telefoneNormalizado, idUsuario)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Telefone já cadastrado!");
         }
 
-        String telefoneAnterior = usuario.getTelefone() != null ? usuario.getTelefone() : "(nenhum)";
-        String telefoneNovo = telefoneNormalizado != null ? telefoneNormalizado : "(removido)";
-        usuario.setTelefone(telefoneNormalizado);
-        usuario.setTelefoneVerificado(false);
-        usuarioRepository.save(usuario);
-        AuditoriaService.definirDetalhes("Telefone alterado de '" + telefoneAnterior + "' para '" + telefoneNovo + "'");
+        envioCodigoRateLimitService.validarLimitePorIp(ip);
 
-        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
-                ProviderExterno.GOOGLE);
+        if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Aguarde alguns instantes antes de solicitar um novo código de verificação!");
+        }
+
+        notificacaoTelefonePort.validarDisponibilidade();
+
+        usuarioRepository.atualizarTelefonePendente(idUsuario, telefoneNormalizado);
+        usuario.setTelefonePendente(telefoneNormalizado);
+
+        String codigo = tokenConfirmacaoService.criarTokenAlteracaoTelefone(usuario, telefoneNormalizado, ip);
+        notificacaoTelefonePort.enviarCodigoVerificacao(telefoneNormalizado, codigo);
+        AuditoriaService.definirDetalhes("Alteração de telefone iniciada para '" + telefoneNormalizado + "'");
+
         return ContaResponse.from(usuario, temLoginGoogle);
     }
 

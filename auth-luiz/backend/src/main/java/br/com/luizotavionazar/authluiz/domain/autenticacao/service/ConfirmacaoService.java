@@ -5,6 +5,7 @@ import br.com.luizotavionazar.authluiz.api.common.exception.ExcecaoLimiteTentati
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenConfirmacao;
+import br.com.luizotavionazar.authluiz.domain.notificacao.port.NotificacaoTelefonePort;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
@@ -21,6 +22,7 @@ public class ConfirmacaoService {
     private final TokenConfirmacaoService tokenConfirmacaoService;
     private final UsuarioRepository usuarioRepository;
     private final EmailService emailService;
+    private final NotificacaoTelefonePort notificacaoTelefonePort;
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
@@ -50,48 +52,78 @@ public class ConfirmacaoService {
         tokenConfirmacaoService.confirmar(token);
     }
 
-    @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public MensagemResponse reenviarVerificacao(Integer idUsuario, String ip) {
-        Usuario usuario = usuarioRepository.findById(idUsuario)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public void confirmarTelefone(Integer idUsuario, String codigo) {
+        TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValidoPorUsuario(
+                idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE, codigo);
+        Usuario usuario = token.getUsuario();
 
-        if (usuario.isEmailVerificado()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O e-mail desta conta já foi verificado!");
+        String novoTelefone = token.getTelefoneDestino();
+        if (usuarioRepository.existsByTelefoneAndIdNot(novoTelefone, usuario.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este telefone já está em uso por outra conta!");
         }
 
-        envioCodigoRateLimitService.validarLimitePorIp(ip);
+        usuario.setTelefone(novoTelefone);
+        usuario.setTelefonePendente(null);
+        usuario.setTelefoneVerificado(true);
+        usuarioRepository.save(usuario);
 
-        if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.VERIFICACAO_CADASTRO)) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                    "Aguarde alguns instantes antes de solicitar um novo e-mail de verificação!");
-        }
-
-        String novoCodigo = tokenConfirmacaoService.criarTokenVerificacaoCadastro(usuario, ip);
-        emailService.enviarVerificacaoCadastro(usuario.getNome(), usuario.getEmail(), novoCodigo);
-
-        return new MensagemResponse("E-mail de verificação reenviado com sucesso!");
+        AuditoriaService.definirDetalhes("Telefone: " + novoTelefone);
+        tokenConfirmacaoService.confirmar(token);
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public MensagemResponse reenviarConfirmacaoAlteracaoEmail(Integer idUsuario, String ip) {
+    public MensagemResponse enviarVerificacaoEmail(Integer idUsuario, String ip) {
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
 
-        if (usuario.getEmailPendente() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não há alteração de e-mail pendente.");
+        envioCodigoRateLimitService.validarLimitePorIp(ip);
+
+        if (!usuario.isEmailVerificado()) {
+            if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.VERIFICACAO_CADASTRO)) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Aguarde alguns instantes antes de solicitar um novo código de verificação!");
+            }
+            String codigo = tokenConfirmacaoService.criarTokenVerificacaoCadastro(usuario, ip);
+            emailService.enviarVerificacaoCadastro(usuario.getNome(), usuario.getEmail(), codigo);
+            return new MensagemResponse("Código de verificação enviado para " + usuario.getEmail() + ".");
+        }
+
+        if (usuario.getEmailPendente() != null) {
+            if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Aguarde alguns instantes antes de solicitar um novo código de verificação!");
+            }
+            String codigo = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, usuario.getEmailPendente(), ip);
+            emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), usuario.getEmailPendente(), codigo);
+            return new MensagemResponse("Código de verificação enviado para " + usuario.getEmailPendente() + ".");
+        }
+
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não há verificação de e-mail pendente.");
+    }
+
+    @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
+    public MensagemResponse reenviarConfirmacaoAlteracaoTelefone(Integer idUsuario, String ip) {
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
+
+        if (usuario.getTelefonePendente() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não há alteração de telefone pendente.");
         }
 
         envioCodigoRateLimitService.validarLimitePorIp(ip);
 
-        if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
+        if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                    "Aguarde alguns instantes antes de solicitar um novo e-mail de confirmação.");
+                    "Aguarde alguns instantes antes de solicitar um novo código de verificação.");
         }
 
-        String novoCodigo = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, usuario.getEmailPendente(), ip);
-        emailService.enviarConfirmacaoAlteracaoEmail(usuario.getNome(), usuario.getEmailPendente(), novoCodigo);
+        notificacaoTelefonePort.validarDisponibilidade();
 
-        return new MensagemResponse("E-mail de confirmação reenviado com sucesso!");
+        String novoCodigo = tokenConfirmacaoService.criarTokenAlteracaoTelefone(usuario, usuario.getTelefonePendente(), ip);
+        notificacaoTelefonePort.enviarCodigoVerificacao(usuario.getTelefonePendente(), novoCodigo);
+
+        return new MensagemResponse("Código de verificação reenviado com sucesso!");
     }
 
     private TipoTokenConfirmacao detectarTipoPendente(Integer idUsuario) {

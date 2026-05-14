@@ -82,10 +82,11 @@ public class ContaController {
     @PatchMapping("/telefone")
     public ResponseEntity<ContaResponse> atualizarTelefone(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody AtualizarTelefoneRequest request
+            @Valid @RequestBody AtualizarTelefoneRequest request,
+            HttpServletRequest httpRequest
     ) {
         Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(contaService.atualizarTelefone(idUsuario, request));
+        return ResponseEntity.ok(contaService.atualizarTelefone(idUsuario, request, httpRequest.getRemoteAddr()));
     }
 
     @Auditavel(acao = AcaoAuditoria.CONTA_DELETADA, categoria = CategoriaAuditoria.SEGURANCA)

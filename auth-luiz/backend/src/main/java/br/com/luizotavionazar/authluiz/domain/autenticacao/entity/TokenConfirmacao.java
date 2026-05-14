@@ -37,6 +37,9 @@ public class TokenConfirmacao {
     @Column(name = "emailDestino", length = 255)
     private String emailDestino;
 
+    @Column(name = "telefoneDestino", length = 20)
+    private String telefoneDestino;
+
     @Column(name = "expiraEm", nullable = false)
     private LocalDateTime expiraEm;
 
