@@ -57,6 +57,9 @@ Consulte `.env.example`. Variáveis obrigatórias:
 - `JWT_RSA_PRIVATE_KEY` — chave privada RSA em base64 (**formato PEM completo em base64**, não DER)
 - `JWT_RSA_PUBLIC_KEY` — chave pública RSA em base64 (**formato PEM completo em base64**, não DER)
 - `JWT_EXPIRATION_MINUTES` — expiração dos JWTs (padrão: 120)
+- `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` — credenciais do Twilio (obtenha em console.twilio.com)
+- `TWILIO_FROM_NUMBER` — número remetente (`+14155238886` para WhatsApp Sandbox)
+- `TWILIO_CANAL` — canal de envio: `whatsapp` ou `sms` (padrão: `whatsapp`)
 
 **PermLuiz:**
 - `PERMLUIZ_DB_USER` / `PERMLUIZ_DB_PASSWORD` — credenciais do banco do PermLuiz
