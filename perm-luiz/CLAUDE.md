@@ -106,12 +106,12 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | POST | `/admin/roles` | JWT+Admin | Cria role |
 | PUT | `/admin/roles/{id}` | JWT+Admin | Atualiza role |
 | DELETE | `/admin/roles/{id}` | JWT+Admin | Remove role |
-| GET | `/admin/roles/{id}/permissoes` | JWT+Admin | Lista permissões de um role |
-| PUT | `/admin/roles/{id}/permissoes` | JWT+Admin | Redefine permissões de um role (lista de IDs) |
-| GET | `/admin/permissoes` | JWT+Admin | Lista todas as permissões |
-| POST | `/admin/permissoes` | JWT+Admin | Cria permissão |
-| PUT | `/admin/permissoes/{id}` | JWT+Admin | Atualiza permissão |
-| DELETE | `/admin/permissoes/{id}` | JWT+Admin | Remove permissão |
+| GET | `/admin/roles/{id}/permissions` | JWT+Admin | Lista permissões de um role |
+| PUT | `/admin/roles/{id}/permissions` | JWT+Admin | Redefine permissões de um role (lista de IDs) |
+| GET | `/admin/permissions` | JWT+Admin | Lista todas as permissões |
+| POST | `/admin/permissions` | JWT+Admin | Cria permissão |
+| PUT | `/admin/permissions/{id}` | JWT+Admin | Atualiza permissão |
+| DELETE | `/admin/permissions/{id}` | JWT+Admin | Remove permissão |
 | GET | `/admin/usuarios` | JWT+Admin | Lista todos os usuários (busca no AuthLuiz via service key) com seus roles |
 | GET | `/admin/usuarios/{id}/roles` | JWT+Admin | Lista roles de um usuário |
 | POST | `/admin/usuarios/{id}/roles` | JWT+Admin | Atribui role ao usuário |

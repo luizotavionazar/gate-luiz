@@ -19,7 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/admin/permissoes")
+@RequestMapping("/admin/permissions")
 @RequiredArgsConstructor
 public class AdminPermissaoController {
 

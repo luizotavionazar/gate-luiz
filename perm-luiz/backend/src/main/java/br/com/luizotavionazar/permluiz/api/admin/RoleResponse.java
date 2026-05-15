@@ -8,7 +8,7 @@ public record RoleResponse(
         Long id,
         String nome,
         String descricao,
-        List<PermissaoResponse> permissoes
+        List<PermissaoResponse> permissions
 ) {
     public static RoleResponse de(Role role) {
         List<PermissaoResponse> perms = role.getPermissoes() == null

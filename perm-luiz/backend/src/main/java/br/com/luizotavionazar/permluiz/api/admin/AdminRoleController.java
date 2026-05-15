@@ -96,7 +96,7 @@ public class AdminRoleController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/{id}/permissoes")
+    @GetMapping("/{id}/permissions")
     List<PermissaoResponse> listarPermissoes(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         adminVerificador.exigirAdmin(jwt);
 
@@ -107,7 +107,7 @@ public class AdminRoleController {
     }
 
     @Auditavel(acao = AcaoAuditoria.ROLE_PERMISSOES_REDEFINIDAS)
-    @PutMapping("/{id}/permissoes")
+    @PutMapping("/{id}/permissions")
     Map<String, Object> redefinirPermissoes(@AuthenticationPrincipal Jwt jwt,
                                             @PathVariable Long id,
                                             @RequestBody List<Long> idsPermissoes) {
