@@ -21,9 +21,9 @@ src/main/java/.../permluiz/
 │   ├── admin/
 │   │   ├── AdminRoleController      GET/POST /admin/roles
 │   │   │                            PUT/DELETE /admin/roles/{id}
-│   │   │                            GET/PUT /admin/roles/{id}/permissoes
-│   │   ├── AdminPermissaoController GET/POST /admin/permissoes
-│   │   │                            PUT/DELETE /admin/permissoes/{id}
+│   │   │                            GET/PUT /admin/roles/{id}/permissions
+│   │   ├── AdminPermissaoController GET/POST /admin/permissions
+│   │   │                            PUT/DELETE /admin/permissions/{id}
 │   │   ├── AdminUsuarioController   GET /admin/usuarios (lista todos com roles via AuthLuiz)
 │   │   │                            GET /admin/usuarios/{id}/roles
 │   │   │                            POST/DELETE /admin/usuarios/{id}/roles/{roleId}
@@ -117,34 +117,143 @@ docker compose -f ../compose-dev.yaml up -d
 
 ## Endpoints
 
+**Base URL:** `http://localhost:8081`
+**Autenticação padrão:** `Authorization: Bearer <JWT emitido pelo AuthLuiz>`
+**JWT+Admin:** exige que o subject do JWT seja o `idAdminMestre` registrado no banco.
+
+---
+
 ### Setup
 
-| Método | Caminho  | Auth    | Descrição                                                |
-|--------|----------|---------|----------------------------------------------------------|
-| GET    | `/setup` | Pública | Retorna `{ "adminConfigurado": true/false }`             |
+**`GET /setup`** — Pública
 
-### Usuário autenticado
+Retorna se o admin mestre já foi configurado. O frontend usa para saber se deve exibir o aviso de primeiro acesso.
 
-| Método | Caminho      | Auth | Descrição                                             |
-|--------|--------------|------|-------------------------------------------------------|
-| GET    | `/me/roles`  | JWT  | Retorna os roles e permissões do usuário autenticado  |
-| GET    | `/me/admin`  | JWT  | Retorna `{ "isAdmin": true/false }` — se o usuário é admin mestre |
+```json
+{ "adminConfigurado": false }
+```
 
-### Admin mestre
+---
 
-| Método | Caminho                               | Auth      | Descrição                              |
-|--------|---------------------------------------|-----------|----------------------------------------|
-| GET    | `/admin/roles`                        | JWT+Admin | Lista todos os roles                   |
-| POST   | `/admin/roles`                        | JWT+Admin | Cria role                              |
-| PUT    | `/admin/roles/{id}`                   | JWT+Admin | Atualiza role                          |
-| DELETE | `/admin/roles/{id}`                   | JWT+Admin | Remove role                            |
-| GET    | `/admin/roles/{id}/permissoes`        | JWT+Admin | Lista permissões de um role            |
-| PUT    | `/admin/roles/{id}/permissoes`        | JWT+Admin | Redefine permissões de um role (lista de IDs) |
-| GET    | `/admin/permissoes`                   | JWT+Admin | Lista todas as permissões              |
-| POST   | `/admin/permissoes`                   | JWT+Admin | Cria permissão (`recurso` + `acao`)    |
-| PUT    | `/admin/permissoes/{id}`              | JWT+Admin | Atualiza permissão                     |
-| DELETE | `/admin/permissoes/{id}`              | JWT+Admin | Remove permissão                       |
-| GET    | `/admin/usuarios`                     | JWT+Admin | Lista todos os usuários (via AuthLuiz) com seus roles |
-| GET    | `/admin/usuarios/{id}/roles`          | JWT+Admin | Lista roles de um usuário              |
-| POST   | `/admin/usuarios/{id}/roles`          | JWT+Admin | Atribui role ao usuário                |
-| DELETE | `/admin/usuarios/{id}/roles/{roleId}` | JWT+Admin | Remove role do usuário                 |
+### Minha conta (`/me`)
+
+**`GET /me/admin`** — JWT
+
+Verifica se o usuário autenticado é o admin mestre. Comportamento especial: se ainda não existe nenhum admin configurado, o primeiro usuário a chamar esse endpoint é automaticamente promovido a admin. O frontend do AuthLuiz usa isso para decidir se exibe o botão "Painel de Controle".
+
+```json
+{ "isAdmin": true }
+```
+
+**`DELETE /me/admin`** — JWT
+
+Reseta o admin mestre (define `idAdminMestre` como nulo). Existe para o caso em que o admin deleta sua própria conta no AuthLuiz — o AuthLuiz chama esse endpoint automaticamente para não deixar o sistema preso com um admin inexistente.
+
+**`GET /me/roles`** — JWT
+
+Retorna as roles do usuário autenticado e as permissões de cada role. É o endpoint que uma aplicação usa em tempo real para verificar o que o usuário pode fazer — ex: "esse usuário tem a permissão `ingresso:comprar`?"
+
+```json
+{
+  "idUsuario": 1,
+  "roles": [
+    {
+      "id": 2,
+      "nome": "Comprador",
+      "permissions": [
+        { "id": 1, "recurso": "ingresso", "acao": "comprar" }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### Roles (`/admin/roles`)
+
+**`GET /admin/roles`** — JWT+Admin
+
+Lista todas as roles cadastradas no sistema (ex: "Comprador", "Organizador", "Fiscal").
+
+**`POST /admin/roles`** — JWT+Admin
+
+Cria uma nova role.
+
+```json
+{ "nome": "Organizador", "descricao": "Pode criar e gerenciar eventos" }
+```
+
+**`PUT /admin/roles/{id}`** — JWT+Admin
+
+Atualiza nome e descrição de uma role existente. Mesmo body do POST.
+
+**`DELETE /admin/roles/{id}`** — JWT+Admin
+
+Remove uma role. Retorna `409` se ainda está atribuída a algum usuário — remova de todos os usuários antes de deletar.
+
+**`GET /admin/roles/{id}/permissions`** — JWT+Admin
+
+Lista as permissões vinculadas a uma role específica.
+
+**`PUT /admin/roles/{id}/permissions`** — JWT+Admin
+
+Redefine completamente as permissões de uma role. Envia um array com os IDs das permissões que a role deve ter — o conteúdo anterior é substituído por inteiro.
+
+```json
+[1, 3, 5]
+```
+
+---
+
+### Permissions (`/admin/permissions`)
+
+**`GET /admin/permissions`** — JWT+Admin
+
+Lista todas as permissões cadastradas. Cada permissão representa uma ação sobre um recurso, no formato `recurso:acao` (ex: `ingresso:comprar`).
+
+**`POST /admin/permissions`** — JWT+Admin
+
+Cria uma nova permissão. `recurso` e `acao` são salvos em minúsculo automaticamente. O par `recurso + acao` deve ser único.
+
+```json
+{ "recurso": "ingresso", "acao": "comprar", "descricao": "Permite comprar ingressos" }
+```
+
+**`PUT /admin/permissions/{id}`** — JWT+Admin
+
+Atualiza os dados de uma permissão. Mesmo body do POST.
+
+**`DELETE /admin/permissions/{id}`** — JWT+Admin
+
+Remove uma permissão. Retorna `409` se ainda está vinculada a alguma role — remova das roles antes de deletar.
+
+---
+
+### Usuários (`/admin/usuarios`)
+
+**`GET /admin/usuarios`** — JWT+Admin
+
+Lista todos os usuários cadastrados no AuthLuiz (via chamada server-to-server com `X-Service-Key`) junto com as roles que cada um tem no PermLuiz. É a tela principal do painel de controle.
+
+**`GET /admin/usuarios/{idUsuario}/roles`** — JWT+Admin
+
+Retorna apenas as roles de um usuário específico.
+
+**`POST /admin/usuarios/{idUsuario}/roles/{idRole}`** — JWT+Admin
+
+Atribui uma role a um usuário. Retorna `409` se o usuário já possui essa role.
+
+**`DELETE /admin/usuarios/{idUsuario}/roles/{idRole}`** — JWT+Admin
+
+Remove uma role de um usuário.
+
+---
+
+### Fluxo de uso típico
+
+1. `POST /admin/permissions` — criar as permissões do sistema
+2. `POST /admin/roles` — criar as roles
+3. `PUT /admin/roles/{id}/permissions` — vincular permissões às roles
+4. `POST /admin/usuarios/{id}/roles/{idRole}` — atribuir roles aos usuários
+5. `GET /me/roles` — consultado pela aplicação para saber o que o usuário logado pode fazer

@@ -193,25 +193,234 @@ docker compose -f ../compose-dev.yaml up -d
 
 ## Endpoints
 
-| Método      | Caminho                            | Auth         | Descrição                                          |
-|-------------|------------------------------------|--------------|----------------------------------------------------|
-| POST        | `/auth/cadastro`                   | Pública      | Cadastro com e-mail e senha                        |
-| POST        | `/auth/login`                      | Pública      | Login local (e-mail ou telefone + senha), retorna JWT |
-| POST        | `/auth/oauth/google`               | Pública      | Login/cadastro via Google (409 se e-mail já existe)|
-| POST        | `/auth/oauth/google/vincular`      | JWT          | Vincula Google à conta (e-mail Google = e-mail conta) |
-| DELETE      | `/auth/oauth/google/vincular`      | JWT          | Desvincula Google (exige senha definida; bloqueado para contas criadas via Google) |
-| POST        | `/auth/recuperacao/iniciar`        | Pública      | Inicia recuperação de senha (envia código de 6 dígitos por e-mail) |
-| POST        | `/auth/recuperacao/redefinir`      | Pública      | Redefine senha — body: `{email, codigo, novaSenha}` |
-| GET         | `/auth/me`                         | JWT          | Dados da conta autenticada                         |
-| PATCH       | `/auth/me/nome`                    | JWT          | Atualiza nome                                      |
-| PATCH       | `/auth/me/email`                   | JWT          | Solicita alteração de e-mail (novo deve diferir do atual; sempre envia confirmação) |
-| PATCH       | `/auth/me/senha`                   | JWT          | Altera ou define senha                             |
-| PATCH       | `/auth/me/telefone`                | JWT          | Inicia alteração de telefone (salva `telefonePendente`, envia código via Twilio; null remove o telefone diretamente; 503 se Twilio não configurado) |
-| DELETE      | `/auth/me`                         | JWT          | Exclui a conta                                     |
-| POST        | `/auth/verificacao/email/confirmar` | JWT         | Confirma e-mail via código de 6 dígitos — body: `{codigo}`; detecta automaticamente o tipo pendente (cadastro ou alteração) |
-| POST        | `/auth/verificacao/email/enviar`   | JWT          | Envia código de verificação de e-mail — detecta automaticamente: cadastro (`emailVerificado=false`) ou alteração (`emailPendente!=null`); cooldown: 2 min |
-| POST        | `/auth/verificacao/telefone/confirmar` | JWT      | Confirma alteração de telefone via código de 6 dígitos — move `telefonePendente` → `telefone`, define `telefoneVerificado=true` |
-| POST        | `/auth/verificacao/telefone/enviar` | JWT         | Reenvia código de verificação por WhatsApp/SMS (503 se Twilio não configurado; cooldown: 2 min) |
-| GET / POST  | `/setup/**`                        | Chave mestra | Configuração inicial                               |
-| GET         | `/auth/.well-known/jwks.json`      | Pública      | Chave pública RSA no formato JWKS (usado pelo PermLuiz para validar JWTs) |
-| GET         | `/auth/interno/usuarios`           | X-Service-Key | Lista todos os usuários — endpoint server-to-server, não aceita JWT |
+**Base URL:** `http://localhost:8080`
+**Autenticação padrão:** `Authorization: Bearer <JWT>`
+**Setup:** `X-Master-Key: <APP_SETUP_MASTER_KEY>`
+**Interno:** `X-Service-Key: <AUTH_LUIZ_SERVICE_KEY>`
+
+---
+
+### Cadastro e login
+
+**`POST /auth/cadastro`** — Pública
+
+Cria uma nova conta com e-mail e senha. Envia e-mail de boas-vindas. O código de verificação de e-mail não é enviado aqui — o usuário solicita depois na tela de conta.
+
+```json
+{ "nome": "João", "email": "joao@email.com", "senha": "@Senha123" }
+```
+
+Resposta: `{ "idUsuario": 1, "nome": "João", "email": "joao@email.com", "mensagem": "Conta criada! Verifique seu e-mail para ativar a conta." }`
+
+---
+
+**`POST /auth/login`** — Pública
+
+Login com e-mail ou telefone + senha. Retorna JWT.
+
+```json
+{ "identificador": "joao@email.com", "senha": "@Senha123" }
+```
+
+```json
+{ "identificador": "+5511999999999", "senha": "@Senha123" }
+```
+
+Resposta: `{ "token": "eyJ...", "nome": "João", "email": "...", "emailVerificado": true, "telefone": "...", "telefoneVerificado": false }`
+
+---
+
+### Google OAuth
+
+**`POST /auth/oauth/google`** — Pública
+
+Login ou cadastro via Google. O frontend obtém um `idToken` do Google Identity Services SDK e envia aqui. Se o e-mail já existe em uma conta local, retorna `409` — o usuário deve vincular pelo painel da conta, não fazer login pelo Google.
+
+```json
+{ "idToken": "eyJ..." }
+```
+
+---
+
+**`POST /auth/oauth/google/vincular`** — JWT
+
+Vincula o Google à conta autenticada. O e-mail da conta Google precisa ser idêntico ao e-mail da conta. Após vincular, o usuário pode fazer login pelo Google ou por senha (se tiver definida).
+
+```json
+{ "idToken": "eyJ..." }
+```
+
+---
+
+**`DELETE /auth/oauth/google/vincular`** — JWT
+
+Desvincula o Google da conta. Exige senha definida (para não perder o acesso) e confirmação por senha. Bloqueado para contas que foram **criadas** via Google (`providerOrigem = GOOGLE`) — essas contas não podem ser desvinculadas.
+
+```json
+{ "senha": "@Senha123" }
+```
+
+---
+
+### Recuperação de senha
+
+**`POST /auth/recuperacao/iniciar`** — Pública
+
+Envia um código numérico de 6 dígitos por e-mail para iniciar a recuperação. Rate limiting por IP.
+
+```json
+{ "email": "joao@email.com" }
+```
+
+---
+
+**`POST /auth/recuperacao/redefinir`** — Pública
+
+Redefine a senha usando o código recebido por e-mail. O código expira em 5 minutos e bloqueia após 5 tentativas erradas.
+
+```json
+{ "email": "joao@email.com", "codigo": "123456", "novaSenha": "@NovaSenha123" }
+```
+
+---
+
+### Conta autenticada (`/auth/me`)
+
+**`GET /auth/me`** — JWT
+
+Retorna os dados completos da conta autenticada. Limpa automaticamente `emailPendente` e `telefonePendente` expirados.
+
+```json
+{
+  "idUsuario": 1,
+  "nome": "João",
+  "email": "joao@email.com",
+  "emailVerificado": true,
+  "emailPendente": null,
+  "telefone": "+5511999999999",
+  "telefoneVerificado": true,
+  "telefonePendente": null,
+  "temLoginGoogle": false,
+  "dataCriacao": "2026-01-01T00:00:00"
+}
+```
+
+---
+
+**`PATCH /auth/me/nome`** — JWT
+
+Atualiza o nome do usuário. Exige e-mail verificado.
+
+```json
+{ "nome": "João Silva" }
+```
+
+---
+
+**`PATCH /auth/me/email`** — JWT
+
+Solicita alteração de e-mail. O novo e-mail recebe um código de confirmação — o e-mail atual só é trocado após o código ser confirmado em `/auth/verificacao/email/confirmar`. Bloqueado para contas com Google vinculado. Exige e-mail verificado. Rate limiting por usuário (máx. 5 alterações por 24h) e por IP.
+
+```json
+{ "email": "novo@email.com" }
+```
+
+---
+
+**`PATCH /auth/me/senha`** — JWT
+
+Altera a senha existente ou define uma pela primeira vez (contas criadas via Google). Se o usuário já tem senha, `senhaAtual` é obrigatória. Exige e-mail verificado.
+
+```json
+{ "senhaAtual": "@SenhaAtual1", "novaSenha": "@NovaSenha1" }
+```
+
+Para definir senha pela primeira vez (sem senha atual): omita `senhaAtual`.
+
+---
+
+**`PATCH /auth/me/telefone`** — JWT
+
+Inicia a alteração de telefone: salva o número em `telefonePendente` e envia código de verificação via WhatsApp. O campo `telefone` só é atualizado após a confirmação. Enviar `null` remove o telefone diretamente, sem verificação. Retorna `503` se as credenciais Twilio não estiverem configuradas. Exige e-mail verificado.
+
+```json
+{ "telefone": "+5511999999999" }
+```
+
+```json
+{ "telefone": null }
+```
+
+---
+
+**`DELETE /auth/me`** — JWT
+
+Exclui permanentemente a conta. Se o usuário tem senha definida, deve confirmá-la.
+
+```json
+{ "senha": "@Senha123" }
+```
+
+Contas sem senha (criadas via Google sem senha definida): envie body vazio `{}`.
+
+---
+
+### Verificação de e-mail (`/auth/verificacao/email`)
+
+**`POST /auth/verificacao/email/enviar`** — JWT
+
+Envia o código de verificação por e-mail. Detecta automaticamente o tipo pendente:
+- Se `emailVerificado = false` → envia código de verificação de cadastro
+- Se `emailPendente != null` → envia código de confirmação da alteração de e-mail
+
+Cooldown de 2 minutos entre envios. Rate limiting por IP.
+
+---
+
+**`POST /auth/verificacao/email/confirmar`** — JWT
+
+Confirma o e-mail com o código recebido. Detecta automaticamente o tipo pendente (cadastro ou alteração) — o mesmo endpoint serve para ambos os casos. Bloqueia após 5 tentativas erradas (novo código necessário).
+
+```json
+{ "codigo": "123456" }
+```
+
+---
+
+### Verificação de telefone (`/auth/verificacao/telefone`)
+
+**`POST /auth/verificacao/telefone/enviar`** — JWT
+
+Reenvia o código de verificação para o `telefonePendente` via WhatsApp. Retorna `503` se as credenciais Twilio não estiverem configuradas (nenhum token é criado nesse caso). Cooldown de 2 minutos entre envios. Rate limiting por IP.
+
+---
+
+**`POST /auth/verificacao/telefone/confirmar`** — JWT
+
+Confirma a alteração de telefone com o código recebido. Move `telefonePendente` → `telefone` e define `telefoneVerificado = true`. Bloqueia após 5 tentativas erradas.
+
+```json
+{ "codigo": "123456" }
+```
+
+---
+
+### Setup (`/setup`)
+
+**`GET /setup`** e **`POST /setup`** — `X-Master-Key`
+
+Configuração inicial da aplicação (credenciais SMTP, etc.). Protegido pela chave mestra `APP_SETUP_MASTER_KEY`. Todos os outros endpoints ficam bloqueados até o setup ser concluído.
+
+---
+
+### Endpoints de sistema
+
+**`GET /auth/.well-known/jwks.json`** — Pública
+
+Expõe a chave pública RSA no formato JWKS. Usado pelo PermLuiz (e qualquer serviço externo) para validar JWTs do AuthLuiz sem compartilhar segredos.
+
+---
+
+**`GET /auth/interno/usuarios`** — `X-Service-Key`
+
+Lista todos os usuários. Endpoint server-to-server — não aceita JWT, apenas o header `X-Service-Key`. Usado pelo PermLuiz para exibir a lista de usuários no painel de admin.
