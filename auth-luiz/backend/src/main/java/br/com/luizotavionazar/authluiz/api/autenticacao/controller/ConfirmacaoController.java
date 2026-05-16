@@ -64,6 +64,6 @@ public class ConfirmacaoController {
     ) {
         Integer idUsuario = Integer.valueOf(jwt.getSubject());
         String ip = httpRequest.getRemoteAddr();
-        return ResponseEntity.ok(confirmacaoService.reenviarConfirmacaoAlteracaoTelefone(idUsuario, ip));
+        return ResponseEntity.ok(confirmacaoService.enviarVerificacaoTelefone(idUsuario, ip));
     }
 }

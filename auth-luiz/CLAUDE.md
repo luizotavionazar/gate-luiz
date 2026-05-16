@@ -185,14 +185,24 @@ As tabelas `tokenRecuperacaoSenha`, `identidadeExterna`, `tokenConfirmacao` e `c
 
 A entidade `Usuario` possui os campos `telefone` (VARCHAR 20, nullable, único, formato E.164: `+5511987654321`), `telefoneVerificado` (boolean, default false) e `telefonePendente` (VARCHAR 20, nullable). O campo é opcional no cadastro e atualizável via `PATCH /auth/me/telefone`.
 
-**Fluxo de alteração de telefone (2 etapas — espelhando o e-mail):**
+**Fluxo de verificação de telefone (espelhando o e-mail):**
+
+`POST /auth/verificacao/telefone/enviar` detecta automaticamente o tipo pendente:
+- `telefonePendente != null` → envia código de **alteração** (`ALTERACAO_TELEFONE`) para o número pendente
+- `telefone != null && !telefoneVerificado` → envia código de **verificação inicial** (`VERIFICACAO_TELEFONE`) para o telefone cadastrado
+- Nenhum dos casos → 400
+
+`POST /auth/verificacao/telefone/confirmar` detecta automaticamente o tipo ativo (`VERIFICACAO_TELEFONE` ou `ALTERACAO_TELEFONE`) e aplica a ação correta:
+- `VERIFICACAO_TELEFONE` → define `telefoneVerificado = true`
+- `ALTERACAO_TELEFONE` → move `telefonePendente` → `telefone`, define `telefoneVerificado = true`
+
+**Fluxo de alteração de telefone (2 etapas):**
 1. `PATCH /auth/me/telefone` — valida disponibilidade do Twilio (503 se não configurado), salva o novo número em `telefonePendente`, cria token `ALTERACAO_TELEFONE` e envia código via Twilio. O campo `telefone` permanece inalterado até a confirmação.
-2. `POST /auth/verificacao/telefone/confirmar` — valida o código, move `telefonePendente` → `telefone`, define `telefoneVerificado = true`.
-3. `POST /auth/verificacao/telefone/enviar` — reenvia o código (valida disponibilidade Twilio antes de criar novo token; cooldown de 2 min, rate limit por IP).
+2. `POST /auth/verificacao/telefone/confirmar` — valida o código e aplica a alteração.
 
 Regras: requer `emailVerificado = true`; código de 6 dígitos expira em 5 min; máx 5 tentativas erradas bloqueiam o token; remoção de telefone (body `{telefone: null}`) é direta, sem verificação. Dois usuários não podem ter o mesmo `telefone` — unicidade validada no serviço (409) e no banco (`uq_usuario_telefone`). `telefonePendente` expirado é limpo automaticamente em `GET /auth/me`.
 
-**Provider SMS:** Twilio (SDK `com.twilio.sdk:twilio`). Interface `NotificacaoTelefonePort` em `domain/notificacao/port/` — `TwilioAdapter` é a implementação atual (`@Primary`). A interface define dois métodos: `validarDisponibilidade()` (síncrono — lança HTTP 503 se credenciais não configuradas) e `enviarCodigoVerificacao()` (`@Async` — erros de API Twilio são logados, não propagados ao HTTP). Credenciais via variáveis de ambiente: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `TWILIO_CANAL` (padrão: `whatsapp`). **Comportamento quando credenciais ausentes:** `validarDisponibilidade()` é chamado sincronamente antes de qualquer persistência (antes de salvar `telefonePendente` ou criar token) — retorna HTTP 503 ao cliente e não salva nenhum estado. Falhas na API Twilio (credenciais configuradas mas envio falha) são logadas sem interromper o fluxo. Trocar de provedor = novo adapter implementando `NotificacaoTelefonePort`, sem alterar domínio.
+**Provider SMS:** Twilio (SDK `com.twilio.sdk:twilio`). Interface `NotificacaoTelefonePort` em `domain/notificacao/port/` — `TwilioAdapter` é a implementação atual (`@Primary`). A interface define dois métodos: `validarDisponibilidade()` (síncrono — lança HTTP 503 se credenciais não configuradas) e `enviarCodigoVerificacao()` (`@Async` — erros de API Twilio são logados, não propagados ao HTTP). **Credenciais armazenadas no banco:** `twilioAccountSidCriptografado`, `twilioAuthTokenCriptografado`, `twilioFromNumber`, `twilioCanal` são colunas da tabela `configuracaoAplicacao`, configuradas via `POST /setup` (igual ao SMTP). O `TwilioAdapter` lê as credenciais via `SetupService` em tempo de execução — não há variáveis de ambiente para o Twilio. **Comportamento quando credenciais ausentes:** `validarDisponibilidade()` é chamado sincronamente antes de qualquer persistência (antes de salvar `telefonePendente` ou criar token) — retorna HTTP 503 ao cliente e não salva nenhum estado. Falhas na API Twilio (credenciais configuradas mas envio falha) são logadas sem interromper o fluxo. Trocar de provedor = novo adapter implementando `NotificacaoTelefonePort`, sem alterar domínio.
 
 **Formato de número brasileiro no WhatsApp:** contas criadas antes de 2012 podem estar registradas no WhatsApp sem o 9º dígito (ex: `+553898286294` em vez de `+5538998286294`). O Twilio envia para o número exatamente como cadastrado no banco — se o usuário cadastrou com o 9 mas o WhatsApp reconhece sem ele (ou vice-versa), a mensagem não será entregue. Não há como detectar isso automaticamente; o usuário deve cadastrar o número no formato em que está registrado no WhatsApp.
 
@@ -206,9 +216,9 @@ O sistema de auditoria registra automaticamente ações dos usuários na tabela 
 
 **Categorias:**
 - `SEGURANCA` — sempre registrado (login, cadastro, senha, conta deletada, OAuth). Não tem toggle.
-- `ATIVIDADE` — configurável via `AUDITORIA_ATIVIDADE=false` (nome, e-mail, telefone, vínculos Google). Padrão: `true`.
+- `ATIVIDADE` — configurável via setup (campo `auditoriaAtividade` na tabela `configuracaoAplicacao`, padrão: `true`). Lido pelo `AuditoriaAspect` em cada requisição via `SetupService`.
 
-**Limpeza automática:** `AuditoriaLimpezaService` roda diariamente às 03:00 e exclui logs com `criadoEm < agora - AUDITORIA_RETENCAO_DIAS` (padrão: 90 dias).
+**Limpeza automática:** `AuditoriaLimpezaService` roda diariamente às 03:00 e exclui logs com `criadoEm < agora - auditoriaRetencaoDias` (padrão: 90 dias, configurável via setup).
 
 **Detalhes do log (`AuditoriaService.definirDetalhes`):**
 - Endpoints **anônimos** (login, cadastro, recuperação de senha, confirmação de e-mail, login Google): incluir `"E-mail: x@y.com"` — é a única forma de identificar a conta, pois `idUsuario` é null.

@@ -54,21 +54,26 @@ public class ConfirmacaoService {
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public void confirmarTelefone(Integer idUsuario, String codigo) {
-        TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValidoPorUsuario(
-                idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE, codigo);
+        TipoTokenConfirmacao tipo = detectarTipoPendenteTelefone(idUsuario);
+        TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValidoPorUsuario(idUsuario, tipo, codigo);
         Usuario usuario = token.getUsuario();
 
-        String novoTelefone = token.getTelefoneDestino();
-        if (usuarioRepository.existsByTelefoneAndIdNot(novoTelefone, usuario.getId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este telefone já está em uso por outra conta!");
+        if (tipo == TipoTokenConfirmacao.VERIFICACAO_TELEFONE) {
+            usuario.setTelefoneVerificado(true);
+            usuarioRepository.save(usuario);
+            AuditoriaService.definirDetalhes("Telefone verificado: " + usuario.getTelefone());
+        } else {
+            String novoTelefone = token.getTelefoneDestino();
+            if (usuarioRepository.existsByTelefoneAndIdNot(novoTelefone, usuario.getId())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Este telefone já está em uso por outra conta!");
+            }
+            usuario.setTelefone(novoTelefone);
+            usuario.setTelefonePendente(null);
+            usuario.setTelefoneVerificado(true);
+            usuarioRepository.save(usuario);
+            AuditoriaService.definirDetalhes("Telefone: " + novoTelefone);
         }
 
-        usuario.setTelefone(novoTelefone);
-        usuario.setTelefonePendente(null);
-        usuario.setTelefoneVerificado(true);
-        usuarioRepository.save(usuario);
-
-        AuditoriaService.definirDetalhes("Telefone: " + novoTelefone);
         tokenConfirmacaoService.confirmar(token);
     }
 
@@ -103,27 +108,34 @@ public class ConfirmacaoService {
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public MensagemResponse reenviarConfirmacaoAlteracaoTelefone(Integer idUsuario, String ip) {
+    public MensagemResponse enviarVerificacaoTelefone(Integer idUsuario, String ip) {
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
 
-        if (usuario.getTelefonePendente() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não há alteração de telefone pendente.");
-        }
-
         envioCodigoRateLimitService.validarLimitePorIp(ip);
-
-        if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE)) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                    "Aguarde alguns instantes antes de solicitar um novo código de verificação.");
-        }
-
         notificacaoTelefonePort.validarDisponibilidade();
 
-        String novoCodigo = tokenConfirmacaoService.criarTokenAlteracaoTelefone(usuario, usuario.getTelefonePendente(), ip);
-        notificacaoTelefonePort.enviarCodigoVerificacao(usuario.getTelefonePendente(), novoCodigo);
+        if (usuario.getTelefonePendente() != null) {
+            if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE)) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Aguarde alguns instantes antes de solicitar um novo código de verificação.");
+            }
+            String codigo = tokenConfirmacaoService.criarTokenAlteracaoTelefone(usuario, usuario.getTelefonePendente(), ip);
+            notificacaoTelefonePort.enviarCodigoVerificacao(usuario.getTelefonePendente(), codigo);
+            return new MensagemResponse("Código de verificação enviado para " + usuario.getTelefonePendente() + ".");
+        }
 
-        return new MensagemResponse("Código de verificação reenviado com sucesso!");
+        if (usuario.getTelefone() != null && !usuario.isTelefoneVerificado()) {
+            if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.VERIFICACAO_TELEFONE)) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Aguarde alguns instantes antes de solicitar um novo código de verificação.");
+            }
+            String codigo = tokenConfirmacaoService.criarTokenVerificacaoTelefone(usuario, ip);
+            notificacaoTelefonePort.enviarCodigoVerificacao(usuario.getTelefone(), codigo);
+            return new MensagemResponse("Código de verificação enviado para " + usuario.getTelefone() + ".");
+        }
+
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não há verificação de telefone pendente.");
     }
 
     private TipoTokenConfirmacao detectarTipoPendente(Integer idUsuario) {
@@ -132,6 +144,17 @@ public class ConfirmacaoService {
         }
         if (tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
             return TipoTokenConfirmacao.ALTERACAO_EMAIL;
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Nenhum código de verificação ativo encontrado!");
+    }
+
+    private TipoTokenConfirmacao detectarTipoPendenteTelefone(Integer idUsuario) {
+        if (tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.VERIFICACAO_TELEFONE)) {
+            return TipoTokenConfirmacao.VERIFICACAO_TELEFONE;
+        }
+        if (tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE)) {
+            return TipoTokenConfirmacao.ALTERACAO_TELEFONE;
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Nenhum código de verificação ativo encontrado!");

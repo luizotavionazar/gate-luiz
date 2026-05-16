@@ -38,6 +38,13 @@ public class TokenConfirmacaoService {
     }
 
     @Transactional
+    public String criarTokenVerificacaoTelefone(Usuario usuario, String ip) {
+        encerrarTokensAbertos(usuario.getId(), TipoTokenConfirmacao.VERIFICACAO_TELEFONE);
+        return criarToken(usuario, TipoTokenConfirmacao.VERIFICACAO_TELEFONE, null, null, ip,
+                LocalDateTime.now().plusMinutes(EXPIRACAO_CODIGO_MINUTES));
+    }
+
+    @Transactional
     public String criarTokenAlteracaoTelefone(Usuario usuario, String novoTelefone, String ip) {
         encerrarTokensAbertos(usuario.getId(), TipoTokenConfirmacao.ALTERACAO_TELEFONE);
         return criarToken(usuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE, null, novoTelefone, ip,
