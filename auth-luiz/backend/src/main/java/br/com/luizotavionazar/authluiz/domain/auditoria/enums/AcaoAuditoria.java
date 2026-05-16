@@ -13,6 +13,7 @@ public enum AcaoAuditoria {
     CONTA_DELETADA,
     LOGIN_GOOGLE,
     LOGIN_GOOGLE_FALHA,
+    SETUP_CONFIGURADO,
 
     // ATIVIDADE
     ALTERAR_NOME,

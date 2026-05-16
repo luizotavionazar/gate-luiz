@@ -42,6 +42,26 @@ public class ConfiguracaoAplicacao {
     @Column(name = "frontendBaseUrl")
     private String frontendBaseUrl;
 
+    @Column(name = "twilioAccountSidCriptografado")
+    private String twilioAccountSidCriptografado;
+
+    @Column(name = "twilioAuthTokenCriptografado")
+    private String twilioAuthTokenCriptografado;
+
+    @Column(name = "twilioFromNumber")
+    private String twilioFromNumber;
+
+    @Column(name = "twilioCanal")
+    private String twilioCanal;
+
+    @Column(name = "auditoriaAtividade", nullable = false)
+    @Builder.Default
+    private boolean auditoriaAtividade = true;
+
+    @Column(name = "auditoriaRetencaoDias", nullable = false)
+    @Builder.Default
+    private int auditoriaRetencaoDias = 90;
+
     @Column(name = "dataCriacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;
 

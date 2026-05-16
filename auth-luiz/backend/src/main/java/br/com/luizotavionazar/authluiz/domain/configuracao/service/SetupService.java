@@ -3,6 +3,7 @@ package br.com.luizotavionazar.authluiz.domain.configuracao.service;
 import br.com.luizotavionazar.authluiz.api.setup.dto.ConfiguracaoEmailPublicaResponse;
 import br.com.luizotavionazar.authluiz.api.setup.dto.SalvarSetupRequest;
 import br.com.luizotavionazar.authluiz.api.setup.dto.StatusSetupResponse;
+import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.configuracao.entity.ConfiguracaoAplicacao;
 import br.com.luizotavionazar.authluiz.domain.configuracao.repository.ConfiguracaoAplicacaoRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,7 +56,12 @@ public class SetupService {
                 config.getMailFrom(),
                 config.getFrontendBaseUrl(),
                 config.isSmtpStarttls(),
-                config.isSetupConcluido()
+                config.isSetupConcluido(),
+                config.getTwilioFromNumber(),
+                config.getTwilioCanal(),
+                twilioConfigurado(config),
+                config.isAuditoriaAtividade(),
+                config.getAuditoriaRetencaoDias()
         );
     }
 
@@ -70,6 +76,7 @@ public class SetupService {
         }
 
         ConfiguracaoAplicacao config = obter();
+        AuditoriaService.definirDetalhes(config.isSetupConcluido() ? "Configuração atualizada" : "Configuração inicial definida");
 
         config.setSmtpHost(request.smtpHost().trim());
         config.setSmtpPort(request.smtpPort());
@@ -80,6 +87,22 @@ public class SetupService {
         config.setMailFrom(request.mailFrom().trim());
         config.setFrontendBaseUrl(request.frontendBaseUrl().trim());
         config.setSmtpStarttls(request.smtpStarttls());
+
+        if (!isBlank(request.twilioAccountSid()) && !isBlank(request.twilioAuthToken())) {
+            config.setTwilioAccountSidCriptografado(criptografiaService.criptografar(request.twilioAccountSid().trim()));
+            config.setTwilioAuthTokenCriptografado(criptografiaService.criptografar(request.twilioAuthToken().trim()));
+            config.setTwilioFromNumber(!isBlank(request.twilioFromNumber()) ? request.twilioFromNumber().trim() : null);
+            config.setTwilioCanal(!isBlank(request.twilioCanal()) ? request.twilioCanal().trim() : "whatsapp");
+        } else {
+            config.setTwilioAccountSidCriptografado(null);
+            config.setTwilioAuthTokenCriptografado(null);
+            config.setTwilioFromNumber(null);
+            config.setTwilioCanal(null);
+        }
+
+        config.setAuditoriaAtividade(request.auditoriaAtividade() != null ? request.auditoriaAtividade() : true);
+        config.setAuditoriaRetencaoDias(request.auditoriaRetencaoDias() != null ? request.auditoriaRetencaoDias() : 90);
+
         config.setSetupConcluido(true);
 
         repository.save(config);
@@ -101,6 +124,46 @@ public class SetupService {
 
     public boolean setupConcluido() {
         return obter().isSetupConcluido();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean twilioDisponivel() {
+        return twilioConfigurado(obter());
+    }
+
+    @Transactional(readOnly = true)
+    public String obterTwilioAccountSid() {
+        return criptografiaService.descriptografar(obter().getTwilioAccountSidCriptografado());
+    }
+
+    @Transactional(readOnly = true)
+    public String obterTwilioAuthToken() {
+        return criptografiaService.descriptografar(obter().getTwilioAuthTokenCriptografado());
+    }
+
+    @Transactional(readOnly = true)
+    public String obterTwilioFromNumber() {
+        return obter().getTwilioFromNumber();
+    }
+
+    @Transactional(readOnly = true)
+    public String obterTwilioCanal() {
+        String canal = obter().getTwilioCanal();
+        return canal != null ? canal : "whatsapp";
+    }
+
+    @Transactional(readOnly = true)
+    public boolean auditoriaAtividadeHabilitada() {
+        return obter().isAuditoriaAtividade();
+    }
+
+    @Transactional(readOnly = true)
+    public int auditoriaRetencaoDias() {
+        return obter().getAuditoriaRetencaoDias();
+    }
+
+    private boolean twilioConfigurado(ConfiguracaoAplicacao config) {
+        return !isBlank(config.getTwilioAccountSidCriptografado()) && !isBlank(config.getTwilioAuthTokenCriptografado());
     }
 
     private boolean isBlank(String valor) {

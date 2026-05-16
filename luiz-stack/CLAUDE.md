@@ -57,9 +57,8 @@ Consulte `.env.example`. Variáveis obrigatórias:
 - `JWT_RSA_PRIVATE_KEY` — chave privada RSA em base64 (**formato PEM completo em base64**, não DER)
 - `JWT_RSA_PUBLIC_KEY` — chave pública RSA em base64 (**formato PEM completo em base64**, não DER)
 - `JWT_EXPIRATION_MINUTES` — expiração dos JWTs (padrão: 120)
-- `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` — credenciais do Twilio (obtenha em console.twilio.com)
-- `TWILIO_FROM_NUMBER` — número remetente (`+14155238886` para WhatsApp Sandbox)
-- `TWILIO_CANAL` — canal de envio: `whatsapp` ou `sms` (padrão: `whatsapp`)
+
+> As credenciais de **e-mail SMTP** e **Twilio** (WhatsApp/SMS) não são variáveis de ambiente — são configuradas em runtime via `POST /setup` e ficam criptografadas no banco. Use a tela de setup do AuthLuiz após o primeiro `docker compose up`.
 
 **PermLuiz:**
 - `PERMLUIZ_DB_USER` / `PERMLUIZ_DB_PASSWORD` — credenciais do banco do PermLuiz

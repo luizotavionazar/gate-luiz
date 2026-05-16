@@ -4,13 +4,13 @@ import br.com.luizotavionazar.authluiz.domain.auditoria.entity.LogAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
+import br.com.luizotavionazar.authluiz.domain.configuracao.service.SetupService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
@@ -28,13 +28,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class AuditoriaAspect {
 
     private final AuditoriaService auditoriaService;
-
-    @Value("${auditoria.atividade:true}")
-    private boolean atividadeHabilitado;
+    private final SetupService setupService;
 
     @Around("@annotation(auditavel)")
     public Object auditar(ProceedingJoinPoint pjp, Auditavel auditavel) throws Throwable {
-        if (auditavel.categoria() == CategoriaAuditoria.ATIVIDADE && !atividadeHabilitado) {
+        if (auditavel.categoria() == CategoriaAuditoria.ATIVIDADE && !setupService.auditoriaAtividadeHabilitada()) {
             return pjp.proceed();
         }
 

@@ -7,6 +7,11 @@ public record ConfiguracaoEmailPublicaResponse(
         String mailFrom,
         String frontendBaseUrl,
         boolean smtpStarttls,
-        boolean setupConcluido
+        boolean setupConcluido,
+        String twilioFromNumber,
+        String twilioCanal,
+        boolean twilioConfigurado,
+        boolean auditoriaAtividade,
+        int auditoriaRetencaoDias
 ) {
 }

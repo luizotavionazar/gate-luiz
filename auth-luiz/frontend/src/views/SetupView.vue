@@ -10,6 +10,7 @@
         <div v-if="bootstrapErro" class="alert alert-warning">{{ bootstrapErro }}</div>
 
         <form @submit.prevent="salvar">
+          <h6 class="fw-semibold text-muted mb-3 mt-2">E-mail (obrigatório)</h6>
           <div class="row gx-2">
             <div class="col-md-6 mb-3">
               <label class="form-label">Host SMTP</label>
@@ -43,6 +44,50 @@
             </div>
           </div>
 
+          <hr class="my-3" />
+          <h6 class="fw-semibold text-muted mb-1">WhatsApp / SMS via Twilio <span class="badge bg-secondary fw-normal ms-1" style="font-size: 0.7rem;">opcional</span></h6>
+          <p class="text-muted small mb-3">Necessário para verificação de telefone. Deixe em branco se não for usar.</p>
+          <div class="row gx-2">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Account SID</label>
+              <input v-model="form.twilioAccountSid" class="form-control no-password-reveal" type="password" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Auth Token</label>
+              <input v-model="form.twilioAuthToken" class="form-control no-password-reveal" type="password" placeholder="••••••••••••••••••••••••••••••••" autocomplete="off" />
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Número remetente</label>
+              <input v-model="form.twilioFromNumber" class="form-control" placeholder="+14155238886" />
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Canal</label>
+              <select v-model="form.twilioCanal" class="form-select">
+                <option value="whatsapp">WhatsApp</option>
+                <option value="sms">SMS</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="twilioConfigurado" class="alert alert-success py-2 small mb-3">
+            <i class="bi bi-check-circle me-1"></i> Twilio já configurado. Preencha novamente apenas se quiser alterar as credenciais.
+          </div>
+
+          <hr class="my-3" />
+          <h6 class="fw-semibold text-muted mb-3">Auditoria de logs</h6>
+          <div class="row gx-2">
+            <div class="col-md-6 mb-3">
+              <div class="form-check mt-0 pt-2">
+                <input v-model="form.auditoriaAtividade" class="form-check-input" type="checkbox" id="auditoriaAtividade" />
+                <label class="form-check-label" for="auditoriaAtividade">Registrar logs de atividade <span class="text-muted small">(edições de perfil)</span></label>
+              </div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Retenção dos logs (dias)</label>
+              <input v-model.number="form.auditoriaRetencaoDias" type="number" min="1" max="3650" class="form-control" />
+            </div>
+          </div>
+
           <div v-if="erro" class="alert alert-danger">{{ erro }}</div>
           <div v-if="sucesso" class="alert alert-success">{{ sucesso }}</div>
 
@@ -67,6 +112,7 @@ const erro = ref('')
 const sucesso = ref('')
 const bootstrapErro = ref('')
 const bootstrapOk = ref(false)
+const twilioConfigurado = ref(false)
 
 const form = reactive({
   smtpHost: '',
@@ -75,7 +121,13 @@ const form = reactive({
   smtpPassword: '',
   mailFrom: '',
   frontendBaseUrl: 'http://localhost:5173',
-  smtpStarttls: true
+  smtpStarttls: true,
+  twilioAccountSid: '',
+  twilioAuthToken: '',
+  twilioFromNumber: '',
+  twilioCanal: 'whatsapp',
+  auditoriaAtividade: true,
+  auditoriaRetencaoDias: 90
 })
 
 async function carregar() {
@@ -100,6 +152,11 @@ async function carregar() {
     form.mailFrom = config.mailFrom || ''
     form.frontendBaseUrl = config.frontendBaseUrl || 'http://localhost:5173'
     form.smtpStarttls = config.smtpStarttls ?? true
+    form.twilioFromNumber = config.twilioFromNumber || ''
+    form.twilioCanal = config.twilioCanal || 'whatsapp'
+    twilioConfigurado.value = config.twilioConfigurado ?? false
+    form.auditoriaAtividade = config.auditoriaAtividade ?? true
+    form.auditoriaRetencaoDias = config.auditoriaRetencaoDias ?? 90
   } catch (e) {
     erro.value = extrairMensagemErro(e, 'Não foi possível carregar o setup.')
   }

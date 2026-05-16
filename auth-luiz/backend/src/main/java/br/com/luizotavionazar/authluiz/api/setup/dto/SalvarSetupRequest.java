@@ -24,6 +24,17 @@ public record SalvarSetupRequest(
         @NotBlank(message = "URL do frontend é obrigatória")
         String frontendBaseUrl,
 
-        boolean smtpStarttls
+        boolean smtpStarttls,
+
+        String twilioAccountSid,
+        String twilioAuthToken,
+        String twilioFromNumber,
+        String twilioCanal,
+
+        Boolean auditoriaAtividade,
+
+        @Min(value = 1, message = "Retenção de auditoria deve ser de pelo menos 1 dia")
+        @Max(value = 3650, message = "Retenção de auditoria não pode ultrapassar 3650 dias")
+        Integer auditoriaRetencaoDias
 ) {
 }
