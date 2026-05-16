@@ -13,8 +13,6 @@ import java.util.Optional;
 
 public interface TokenConfirmacaoRepository extends JpaRepository<TokenConfirmacao, Long> {
 
-    Optional<TokenConfirmacao> findByTokenHash(String tokenHash);
-
     Optional<TokenConfirmacao> findFirstByUsuarioIdAndTipoAndConfirmadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(
             Integer idUsuario, TipoTokenConfirmacao tipo
     );

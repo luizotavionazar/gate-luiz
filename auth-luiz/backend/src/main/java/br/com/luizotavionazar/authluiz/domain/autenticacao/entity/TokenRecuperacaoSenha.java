@@ -27,8 +27,8 @@ public class TokenRecuperacaoSenha {
     @JoinColumn(name = "idUsuario", nullable = false)
     private Usuario usuario;
 
-    @Column(name = "tokenHash", nullable = false, length = 64)
-    private String tokenHash;
+    @Column(name = "codigo", nullable = false, length = 6)
+    private String codigo;
 
     @Column(name = "expiraEm", nullable = false)
     private LocalDateTime expiraEm;

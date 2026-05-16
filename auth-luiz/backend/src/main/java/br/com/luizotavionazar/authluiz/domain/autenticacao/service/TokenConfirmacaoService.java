@@ -63,8 +63,7 @@ public class TokenConfirmacaoService {
                     "Código expirado. Solicite um novo código de verificação.");
         }
 
-        String codigoHash = TokenUtils.gerarHash(codigo);
-        if (!codigoHash.equals(token.getTokenHash())) {
+        if (!codigo.equals(token.getCodigo())) {
             token.setTentativasErradas(token.getTentativasErradas() + 1);
             if (token.getTentativasErradas() >= MAX_TENTATIVAS_ERRADAS) {
                 token.setEncerradoEm(LocalDateTime.now());
@@ -105,12 +104,11 @@ public class TokenConfirmacaoService {
 
     private String criarToken(Usuario usuario, TipoTokenConfirmacao tipo, String emailDestino, String telefoneDestino, String ip, LocalDateTime expiraEm) {
         String codigoBruto = TokenUtils.gerarCodigoNumerico6Digitos();
-        String codigoHash = TokenUtils.gerarHash(codigoBruto);
 
         TokenConfirmacao token = TokenConfirmacao.builder()
                 .usuario(usuario)
                 .tipo(tipo)
-                .tokenHash(codigoHash)
+                .codigo(codigoBruto)
                 .emailDestino(emailDestino)
                 .telefoneDestino(telefoneDestino)
                 .expiraEm(expiraEm)

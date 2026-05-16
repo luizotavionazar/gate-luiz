@@ -11,8 +11,6 @@ import java.util.Optional;
 
 public interface TokenRecuperacaoSenhaRepository extends JpaRepository<TokenRecuperacaoSenha, Long> {
 
-    Optional<TokenRecuperacaoSenha> findByTokenHash(String tokenHash);
-
     Optional<TokenRecuperacaoSenha> findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(Integer idUsuario);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

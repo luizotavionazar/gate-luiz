@@ -31,8 +31,8 @@ public class TokenConfirmacao {
     @Column(name = "tipo", nullable = false, length = 30)
     private TipoTokenConfirmacao tipo;
 
-    @Column(name = "tokenHash", nullable = false, length = 64)
-    private String tokenHash;
+    @Column(name = "codigo", nullable = false, length = 6)
+    private String codigo;
 
     @Column(name = "emailDestino", length = 255)
     private String emailDestino;

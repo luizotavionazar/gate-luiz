@@ -141,11 +141,10 @@ public class AutenticacaoService {
             }
 
             String codigoBruto = TokenUtils.gerarCodigoNumerico6Digitos();
-            String codigoHash = TokenUtils.gerarHash(codigoBruto);
 
             TokenRecuperacaoSenha token = TokenRecuperacaoSenha.builder()
                     .usuario(usuario)
-                    .tokenHash(codigoHash)
+                    .codigo(codigoBruto)
                     .expiraEm(agora.plusMinutes(EXPIRACAO_TOKEN_MINUTES))
                     .ipSolicitacao(ip)
                     .build();
@@ -179,8 +178,7 @@ public class AutenticacaoService {
                     "Código de recuperação inválido ou expirado!");
         }
 
-        String codigoHash = TokenUtils.gerarHash(request.codigo());
-        if (!codigoHash.equals(token.getTokenHash())) {
+        if (!request.codigo().equals(token.getCodigo())) {
             token.setTentativasErradas(token.getTentativasErradas() + 1);
             if (token.getTentativasErradas() >= MAX_TENTATIVAS_RECUPERACAO) {
                 token.setEncerradoEm(agora);
