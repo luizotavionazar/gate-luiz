@@ -4,33 +4,34 @@
       <div class="card-body p-4 p-md-5">
         <div class="text-center mb-4">
           <h1 class="h3 fw-bold mb-2">Configuração inicial</h1>
-          <p class="text-muted mb-0">Preencha os dados de envio de e-mail para concluir o setup do AuthLuiz.</p>
+          <p class="text-muted mb-0">Preencha os dados para concluir o setup do AuthLuiz.</p>
         </div>
 
         <div v-if="bootstrapErro" class="alert alert-warning">{{ bootstrapErro }}</div>
 
         <form @submit.prevent="salvar">
-          <h6 class="fw-semibold text-muted mb-3 mt-2">E-mail (obrigatório)</h6>
+          <h6 class="fw-semibold text-muted mb-1">Entrega de E-mail</h6>
+          <p class="text-muted small mb-3">Necessário para verificação de e-mail.</p>
           <div class="row gx-2">
             <div class="col-md-6 mb-3">
               <label class="form-label">Host SMTP</label>
-              <input v-model="form.smtpHost" class="form-control" required />
+              <input v-model="form.smtpHost" class="form-control" placeholder="smtp.example.com" required />
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Porta SMTP</label>
-              <input v-model.number="form.smtpPort" type="number" class="form-control" required />
+              <input v-model.number="form.smtpPort" type="number" class="form-control" placeholder="587" required />
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Usuário SMTP</label>
-              <input v-model="form.smtpUsername" class="form-control" required />
+              <input v-model="form.smtpUsername" class="form-control" placeholder="seu_usuario@example.com" required />
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Senha SMTP</label>
-              <input v-model="form.smtpPassword" type="password" class="form-control no-password-reveal" required />
+              <input v-model="form.smtpPassword" type="password" class="form-control no-password-reveal" placeholder="sua_senha" required />
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">E-mail remetente</label>
-              <input v-model="form.mailFrom" type="email" class="form-control" required />
+              <input v-model="form.mailFrom" type="email" class="form-control" placeholder="seu_email@example.com" required />
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">URL do frontend</label>
@@ -45,24 +46,24 @@
           </div>
 
           <hr class="my-3" />
-          <h6 class="fw-semibold text-muted mb-1">WhatsApp / SMS via Twilio <span class="badge bg-secondary fw-normal ms-1" style="font-size: 0.7rem;">opcional</span></h6>
-          <p class="text-muted small mb-3">Necessário para verificação de telefone. Deixe em branco se não for usar.</p>
+          <h6 class="fw-semibold text-muted mb-1">Envio de WhatsApp e SMS [Twilio]</h6>
+          <p class="text-muted small mb-3">Necessário para verificação de telefone.</p>
           <div class="row gx-2">
             <div class="col-md-6 mb-3">
               <label class="form-label">Account SID</label>
-              <input v-model="form.twilioAccountSid" class="form-control no-password-reveal" type="password" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
+              <input v-model="form.twilioAccountSid" class="form-control no-password-reveal" type="password" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" required />
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Auth Token</label>
-              <input v-model="form.twilioAuthToken" class="form-control no-password-reveal" type="password" placeholder="••••••••••••••••••••••••••••••••" autocomplete="off" />
+              <input v-model="form.twilioAuthToken" class="form-control no-password-reveal" type="password" placeholder="••••••••••••••••••••••••••••••••" autocomplete="off" required />
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">Número remetente</label>
-              <input v-model="form.twilioFromNumber" class="form-control" placeholder="+14155238886" />
+              <label class="form-label">Número de remetente</label>
+              <input v-model="form.twilioFromNumber" class="form-control" placeholder="+5538998286294" required />
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">Canal</label>
-              <select v-model="form.twilioCanal" class="form-select">
+              <label class="form-label">Canal Principal</label>
+              <select v-model="form.twilioCanal" class="form-select" required>
                 <option value="whatsapp">WhatsApp</option>
                 <option value="sms">SMS</option>
               </select>
@@ -75,16 +76,16 @@
 
           <hr class="my-3" />
           <h6 class="fw-semibold text-muted mb-3">Auditoria de logs</h6>
-          <div class="row gx-2">
+          <div class="row gx-2 align-items-end">
             <div class="col-md-6 mb-3">
-              <div class="form-check mt-0 pt-2">
-                <input v-model="form.auditoriaAtividade" class="form-check-input" type="checkbox" id="auditoriaAtividade" />
-                <label class="form-check-label" for="auditoriaAtividade">Registrar logs de atividade <span class="text-muted small">(edições de perfil)</span></label>
-              </div>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Retenção dos logs (dias)</label>
+              <label class="form-label">Tempo de Retenção (dias)</label>
               <input v-model.number="form.auditoriaRetencaoDias" type="number" min="1" max="3650" class="form-control" />
+            </div>
+            <div class="col-md-6 mb-3 d-flex align-items-center" style="padding-bottom: 7px;">
+              <div class="form-check">
+                <input v-model="form.auditoriaAtividade" class="form-check-input" type="checkbox" id="auditoriaAtividade" />
+                <label class="form-check-label" for="auditoriaAtividade">Registrar logs de atividade</label>
+              </div>
             </div>
           </div>
 
