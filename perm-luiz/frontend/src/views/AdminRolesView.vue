@@ -30,7 +30,7 @@ async function carregarRoles() {
 }
 
 async function carregarPermissoes() {
-  const res = await api.get('/admin/permissoes')
+  const res = await api.get('/admin/permissions')
   permissoes.value = res.data
 }
 
@@ -80,12 +80,12 @@ async function remover(id) {
 
 function abrirGerenciarPermissoes(role) {
   gerenciandoId.value = role.id
-  permissoesSelecionadas.value = role.permissoes.map(p => p.id)
+  permissoesSelecionadas.value = role.permissions.map(p => p.id)
 }
 
 async function salvarPermissoes() {
   try {
-    await api.put(`/admin/roles/${gerenciandoId.value}/permissoes`, permissoesSelecionadas.value)
+    await api.put(`/admin/roles/${gerenciandoId.value}/permissions`, permissoesSelecionadas.value)
     sucesso.value = 'Permissões atualizadas!'
     gerenciandoId.value = null
     await carregarRoles()
@@ -100,7 +100,7 @@ async function salvarPermissoes() {
     <nav class="navbar navbar-dark bg-dark px-4">
       <router-link to="/conta" class="navbar-brand fw-bold">PermLuiz</router-link>
       <div class="ms-auto d-flex gap-2">
-        <router-link to="/admin/permissoes" class="btn btn-outline-light btn-sm">Permissões</router-link>
+        <router-link to="/admin/permissions" class="btn btn-outline-light btn-sm">Permissões</router-link>
         <router-link to="/admin/usuarios" class="btn btn-outline-light btn-sm">Usuários</router-link>
       </div>
     </nav>
@@ -155,10 +155,10 @@ async function salvarPermissoes() {
                   <span class="fw-semibold">{{ role.nome }}</span>
                   <span v-if="role.descricao" class="text-muted small ms-2">{{ role.descricao }}</span>
                   <div class="mt-1 d-flex flex-wrap gap-1">
-                    <span v-for="p in role.permissoes" :key="p.id" class="badge bg-secondary">
+                    <span v-for="p in role.permissions" :key="p.id" class="badge bg-secondary">
                       {{ p.recurso }}:{{ p.acao }}
                     </span>
-                    <span v-if="!role.permissoes.length" class="text-muted small">Sem permissões</span>
+                    <span v-if="!role.permissions.length" class="text-muted small">Sem permissões</span>
                   </div>
                 </div>
                 <div class="d-flex gap-1">

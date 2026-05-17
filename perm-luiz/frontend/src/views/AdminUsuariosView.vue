@@ -134,7 +134,7 @@ function formatarData(data) {
       <router-link to="/conta" class="navbar-brand fw-bold">PermLuiz</router-link>
       <div class="ms-auto d-flex gap-2">
         <router-link to="/admin/roles" class="btn btn-outline-light btn-sm">Roles</router-link>
-        <router-link to="/admin/permissoes" class="btn btn-outline-light btn-sm">Permissões</router-link>
+        <router-link to="/admin/permissions" class="btn btn-outline-light btn-sm">Permissões</router-link>
       </div>
     </nav>
 
@@ -239,7 +239,7 @@ function formatarData(data) {
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h6 class="modal-title fw-semibold">Detalhes — {{ usuarioDetalhes?.nome }}</h6>
+            <h6 class="modal-title fw-semibold">Usuário — {{ usuarioDetalhes?.nome }}</h6>
             <button type="button" class="btn-close" @click="fecharDetalhes"></button>
           </div>
           <div class="modal-body">
@@ -296,6 +296,23 @@ function formatarData(data) {
                 <span :class="usuarioDetalhes?.googleVinculado ? 'badge bg-success' : 'badge bg-secondary'">
                   {{ usuarioDetalhes?.googleVinculado ? 'Sim' : 'Não' }}
                 </span>
+              </div>
+            </div>
+            <hr class="my-3">
+            <div class="text-muted small fw-semibold mb-2">Roles e Permissões</div>
+            <div v-if="!usuarioDetalhes?.roles?.length" class="text-muted small">Nenhum role atribuído.</div>
+            <div v-else class="d-flex flex-column gap-2">
+              <div v-for="role in usuarioDetalhes.roles" :key="role.id" class="border rounded px-3 py-2">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <span class="small fw-semibold">{{ role.nome }}</span>
+                  <span class="badge bg-dark">{{ role.permissions?.length || 0 }} permissões</span>
+                </div>
+                <div v-if="role.permissions?.length" class="d-flex flex-wrap gap-1 mt-1">
+                  <span v-for="p in role.permissions" :key="p.id" class="badge bg-secondary" style="font-size:0.7rem">
+                    {{ p.recurso }}:{{ p.acao }}
+                  </span>
+                </div>
+                <div v-else class="text-muted" style="font-size:0.75rem">Sem permissões</div>
               </div>
             </div>
           </div>

@@ -23,7 +23,7 @@ onMounted(async () => {
 })
 
 async function carregar() {
-  const res = await api.get('/admin/permissoes')
+  const res = await api.get('/admin/permissions')
   permissoes.value = res.data
 }
 
@@ -31,7 +31,7 @@ async function criar() {
   erro.value = ''
   criando.value = true
   try {
-    await api.post('/admin/permissoes', {
+    await api.post('/admin/permissions', {
       recurso: novoRecurso.value,
       acao: novaAcao.value,
       descricao: novaDescricao.value
@@ -57,7 +57,7 @@ function iniciarEdicao(p) {
 
 async function salvarEdicao(id) {
   try {
-    await api.put(`/admin/permissoes/${id}`, {
+    await api.put(`/admin/permissions/${id}`, {
       recurso: editRecurso.value,
       acao: editAcao.value,
       descricao: editDescricao.value
@@ -73,7 +73,7 @@ async function salvarEdicao(id) {
 async function remover(id) {
   if (!confirm('Remover esta permissão? Ela será removida de todos os roles que a possuem.')) return
   try {
-    await api.delete(`/admin/permissoes/${id}`)
+    await api.delete(`/admin/permissions/${id}`)
     sucesso.value = 'Permissão removida!'
     await carregar()
   } catch (e) {

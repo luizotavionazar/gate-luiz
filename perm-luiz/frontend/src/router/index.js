@@ -13,7 +13,7 @@ const routes = [
   { path: '/sem-acesso', name: 'sem-acesso', component: SemAcessoView },
   { path: '/conta', name: 'conta', component: MinhaContaView, meta: { requiresAuth: true } },
   { path: '/admin/roles', name: 'admin-roles', component: AdminRolesView, meta: { requiresAuth: true } },
-  { path: '/admin/permissoes', name: 'admin-permissoes', component: AdminPermissoesView, meta: { requiresAuth: true } },
+  { path: '/admin/permissions', name: 'admin-permissoes', component: AdminPermissoesView, meta: { requiresAuth: true } },
   { path: '/admin/usuarios', name: 'admin-usuarios', component: AdminUsuariosView, meta: { requiresAuth: true } }
 ]
 

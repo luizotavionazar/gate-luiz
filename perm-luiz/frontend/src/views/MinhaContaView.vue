@@ -33,7 +33,7 @@ function sair() {
       <span class="navbar-brand fw-bold">PermLuiz</span>
       <div class="ms-auto d-flex gap-2">
         <router-link to="/admin/roles" class="btn btn-outline-light btn-sm">Roles</router-link>
-        <router-link to="/admin/permissoes" class="btn btn-outline-light btn-sm">Permissões</router-link>
+        <router-link to="/admin/permissions" class="btn btn-outline-light btn-sm">Permissões</router-link>
         <router-link to="/admin/usuarios" class="btn btn-outline-light btn-sm">Usuários</router-link>
         <button class="btn btn-outline-danger btn-sm" @click="sair">Sair</button>
       </div>
