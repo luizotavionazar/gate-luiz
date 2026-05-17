@@ -29,8 +29,8 @@ public class ConfirmacaoController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ConfirmarEmailRequest request
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        confirmacaoService.confirmarEmail(idUsuario, request.codigo());
+        String publicId = jwt.getSubject();
+        confirmacaoService.confirmarEmail(publicId, request.codigo());
         return ResponseEntity.ok(new MensagemResponse("E-mail confirmado com sucesso!"));
     }
 
@@ -39,9 +39,9 @@ public class ConfirmacaoController {
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest httpRequest
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
+        String publicId = jwt.getSubject();
         String ip = httpRequest.getRemoteAddr();
-        return ResponseEntity.ok(confirmacaoService.enviarVerificacaoEmail(idUsuario, ip));
+        return ResponseEntity.ok(confirmacaoService.enviarVerificacaoEmail(publicId, ip));
     }
 
     // ── Telefone ──────────────────────────────────────────────────────────────
@@ -52,8 +52,8 @@ public class ConfirmacaoController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ConfirmarEmailRequest request
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        confirmacaoService.confirmarTelefone(idUsuario, request.codigo());
+        String publicId = jwt.getSubject();
+        confirmacaoService.confirmarTelefone(publicId, request.codigo());
         return ResponseEntity.ok(new MensagemResponse("Telefone confirmado com sucesso!"));
     }
 
@@ -62,8 +62,8 @@ public class ConfirmacaoController {
             @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest httpRequest
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
+        String publicId = jwt.getSubject();
         String ip = httpRequest.getRemoteAddr();
-        return ResponseEntity.ok(confirmacaoService.enviarVerificacaoTelefone(idUsuario, ip));
+        return ResponseEntity.ok(confirmacaoService.enviarVerificacaoTelefone(publicId, ip));
     }
 }

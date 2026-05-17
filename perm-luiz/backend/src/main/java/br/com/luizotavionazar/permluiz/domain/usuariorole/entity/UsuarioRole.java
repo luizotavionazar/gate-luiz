@@ -18,7 +18,7 @@ public class UsuarioRole {
 
     @Id
     @Column(name = "idUsuario")
-    private Long idUsuario;
+    private String idUsuario;
 
     @Id
     @Column(name = "idRole")
@@ -32,7 +32,7 @@ public class UsuarioRole {
     private LocalDateTime atribuidoEm;
 
     @Column(nullable = false)
-    private Long atribuidoPor;
+    private String atribuidoPor;
 
     @PrePersist
     void prePersist() {

@@ -210,7 +210,7 @@ Cria uma nova conta com e-mail e senha. Envia e-mail de boas-vindas. O código d
 { "nome": "João", "email": "joao@email.com", "senha": "@Senha123" }
 ```
 
-Resposta: `{ "idUsuario": 1, "nome": "João", "email": "joao@email.com", "mensagem": "Conta criada! Verifique seu e-mail para ativar a conta." }`
+Resposta: `{ "publicId": "550e8400-e29b-41d4-a716-446655440000", "nome": "João", "email": "joao@email.com", "mensagem": "Conta criada! Verifique seu e-mail para ativar a conta." }`
 
 ---
 
@@ -292,7 +292,7 @@ Retorna os dados completos da conta autenticada. Limpa automaticamente `emailPen
 
 ```json
 {
-  "idUsuario": 1,
+  "publicId": "550e8400-e29b-41d4-a716-446655440000",
   "nome": "João",
   "email": "joao@email.com",
   "emailVerificado": true,

@@ -5,7 +5,7 @@ import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import java.time.LocalDateTime;
 
 public record UsuarioInternoResponse(
-        Long id,
+        String publicId,
         String nome,
         String email,
         String telefone,
@@ -19,7 +19,7 @@ public record UsuarioInternoResponse(
 ) {
     public static UsuarioInternoResponse de(Usuario u, boolean googleVinculado) {
         return new UsuarioInternoResponse(
-                u.getId().longValue(),
+                u.getPublicId(),
                 u.getNome(),
                 u.getEmail(),
                 u.getTelefone(),

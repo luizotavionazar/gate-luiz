@@ -48,7 +48,7 @@ function possuiRole(idRole) {
 
 async function atribuirRole(idRole) {
   try {
-    await api.post(`/admin/usuarios/${usuarioSelecionado.value.idUsuario}/roles/${idRole}`)
+    await api.post(`/admin/usuarios/${usuarioSelecionado.value.publicId}/roles/${idRole}`)
     sucesso.value = 'Role atribuído!'
     await recarregarUsuario()
   } catch (e) {
@@ -59,7 +59,7 @@ async function atribuirRole(idRole) {
 async function removerRole(idRole) {
   if (!confirm('Remover este role do usuário?')) return
   try {
-    await api.delete(`/admin/usuarios/${usuarioSelecionado.value.idUsuario}/roles/${idRole}`)
+    await api.delete(`/admin/usuarios/${usuarioSelecionado.value.publicId}/roles/${idRole}`)
     sucesso.value = 'Role removido!'
     await recarregarUsuario()
   } catch (e) {
@@ -70,7 +70,7 @@ async function removerRole(idRole) {
 async function recarregarUsuario() {
   const res = await api.get('/admin/usuarios')
   usuarios.value = res.data
-  const atualizado = res.data.find(u => u.idUsuario === usuarioSelecionado.value.idUsuario)
+  const atualizado = res.data.find(u => u.publicId === usuarioSelecionado.value.publicId)
   if (atualizado) usuarioSelecionado.value = { ...atualizado }
 }
 
@@ -170,7 +170,7 @@ function formatarData(data) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="usuario in usuariosOrdenados" :key="usuario.idUsuario">
+              <tr v-for="usuario in usuariosOrdenados" :key="usuario.publicId">
                 <td class="small fw-semibold">{{ usuario.nome }}</td>
                 <td class="small text-muted">{{ usuario.email }}</td>
                 <td class="small text-muted">{{ usuario.telefone || '—' }}</td>

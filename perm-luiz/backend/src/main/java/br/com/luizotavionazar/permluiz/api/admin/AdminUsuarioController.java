@@ -39,7 +39,7 @@ public class AdminUsuarioController {
 
         List<UsuarioAuthResponse> usuarios = authLuizClient.buscarTodosUsuarios();
 
-        Map<Long, List<RoleResponse>> rolesPorUsuario = usuarioRoleRepository.findAllWithRoles().stream()
+        Map<String, List<RoleResponse>> rolesPorUsuario = usuarioRoleRepository.findAllWithRoles().stream()
                 .collect(Collectors.groupingBy(
                         UsuarioRole::getIdUsuario,
                         Collectors.mapping(ur -> RoleResponse.de(ur.getRole()), Collectors.toList())
@@ -47,7 +47,7 @@ public class AdminUsuarioController {
 
         return usuarios.stream()
                 .map(u -> new UsuarioComRolesResponse(
-                        u.id(),
+                        u.publicId(),
                         u.nome(),
                         u.email(),
                         u.telefone(),
@@ -58,13 +58,13 @@ public class AdminUsuarioController {
                         u.telefoneVerificado(),
                         u.possuiSenha(),
                         u.googleVinculado(),
-                        rolesPorUsuario.getOrDefault(u.id(), List.of())
+                        rolesPorUsuario.getOrDefault(u.publicId(), List.of())
                 ))
                 .toList();
     }
 
     @GetMapping("/{idUsuario}/roles")
-    List<RoleResponse> listarRoles(@AuthenticationPrincipal Jwt jwt, @PathVariable Long idUsuario) {
+    List<RoleResponse> listarRoles(@AuthenticationPrincipal Jwt jwt, @PathVariable String idUsuario) {
         adminVerificador.exigirAdmin(jwt);
         return usuarioRoleRepository.findByIdUsuario(idUsuario).stream()
                 .map(ur -> RoleResponse.de(ur.getRole()))
@@ -74,7 +74,7 @@ public class AdminUsuarioController {
     @Auditavel(acao = AcaoAuditoria.ROLE_USUARIO_ATRIBUIDA)
     @PostMapping("/{idUsuario}/roles/{idRole}")
     ResponseEntity<Map<String, Object>> atribuirRole(@AuthenticationPrincipal Jwt jwt,
-                                                     @PathVariable Long idUsuario,
+                                                     @PathVariable String idUsuario,
                                                      @PathVariable Long idRole) {
         adminVerificador.exigirAdmin(jwt);
 
@@ -100,7 +100,7 @@ public class AdminUsuarioController {
     @Auditavel(acao = AcaoAuditoria.ROLE_USUARIO_REMOVIDA)
     @DeleteMapping("/{idUsuario}/roles/{idRole}")
     ResponseEntity<Void> removerRole(@AuthenticationPrincipal Jwt jwt,
-                                     @PathVariable Long idUsuario,
+                                     @PathVariable String idUsuario,
                                      @PathVariable Long idRole) {
         adminVerificador.exigirAdmin(jwt);
 

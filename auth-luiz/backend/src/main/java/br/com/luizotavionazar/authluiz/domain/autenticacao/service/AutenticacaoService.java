@@ -62,7 +62,7 @@ public class AutenticacaoService {
         usuarioRepository.save(usuario);
 
         eventPublisher.publishEvent(
-                new UsuarioCadastradoEvent(usuario.getId(), usuario.getNome(), usuario.getEmail()));
+                new UsuarioCadastradoEvent(usuario.getPublicId(), usuario.getNome(), usuario.getEmail()));
 
         AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
         return CadastroResponse.from(usuario);

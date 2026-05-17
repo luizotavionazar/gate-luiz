@@ -28,7 +28,7 @@ public class JwtService {
                 .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiresAt(now.plus(expirationMinutes, ChronoUnit.MINUTES))
-                .subject(usuario.getId().toString())
+                .subject(usuario.getPublicId())
                 .claim("email", usuario.getEmail())
                 .claim("name", usuario.getNome())
                 .build();

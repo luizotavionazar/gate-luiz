@@ -95,7 +95,7 @@ export function salvarSessao(loginResponse) {
 
   localStorage.setItem(TOKEN_KEY, loginResponse.token)
   localStorage.setItem(USER_KEY, JSON.stringify({
-    idUsuario: loginResponse.idUsuario,
+    publicId: loginResponse.publicId,
     nome: loginResponse.nome,
     email: loginResponse.email,
     temSenha: Boolean(loginResponse.temSenha),
@@ -109,7 +109,7 @@ export function atualizarSessaoComConta(conta) {
 
   localStorage.setItem(USER_KEY, JSON.stringify({
     ...usuarioAtual,
-    idUsuario: conta.idUsuario,
+    publicId: conta.publicId,
     nome: conta.nome,
     email: conta.email,
     temSenha: Boolean(conta.temSenha),

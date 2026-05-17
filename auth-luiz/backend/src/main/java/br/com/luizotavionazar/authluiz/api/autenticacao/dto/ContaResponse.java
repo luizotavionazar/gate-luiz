@@ -6,7 +6,7 @@ import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import java.time.LocalDateTime;
 
 public record ContaResponse(
-        Integer idUsuario,
+        String publicId,
         String nome,
         String email,
         Boolean temSenha,
@@ -22,7 +22,7 @@ public record ContaResponse(
     public static ContaResponse from(Usuario usuario, boolean temLoginGoogle) {
         ProviderExterno provider = usuario.getProviderOrigem();
         return new ContaResponse(
-                usuario.getId(),
+                usuario.getPublicId(),
                 usuario.getNome(),
                 usuario.getEmail(),
                 usuario.possuiSenha(),

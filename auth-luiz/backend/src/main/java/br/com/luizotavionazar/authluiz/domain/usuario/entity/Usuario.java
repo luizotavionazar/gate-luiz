@@ -11,6 +11,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
+
 
 @Getter
 @Setter
@@ -27,6 +29,9 @@ public class Usuario implements UserDetails {
     @EqualsAndHashCode.Include
     @Column(name = "id", nullable = false, updatable = false)
     private Integer id;
+
+    @Column(name = "publicId", nullable = false, updatable = false, unique = true, length = 32)
+    private String publicId;
 
     @Column(name = "nome", nullable = false, length = 100)
     private String nome;
@@ -69,6 +74,13 @@ public class Usuario implements UserDetails {
 
     @Column(name = "ultimoLogin")
     private LocalDateTime ultimoLogin;
+
+    @PrePersist
+    private void gerarPublicId() {
+        if (publicId == null) {
+            publicId = UUID.randomUUID().toString().replace("-", "");
+        }
+    }
 
     public boolean possuiSenha() {
         return senhaHash != null && !senhaHash.isBlank();

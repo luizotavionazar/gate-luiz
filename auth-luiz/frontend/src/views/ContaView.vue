@@ -77,7 +77,7 @@
               </div>
 
               <div class="d-flex flex-wrap gap-2 align-content-start">
-                <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis border">ID {{ conta.idUsuario }}</span>
+                <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis border">ID {{ conta.publicId }}</span>
                 <span class="badge rounded-pill" :class="conta.temSenha ? 'text-bg-success-subtle text-success-emphasis border' : 'text-bg-warning-subtle text-warning-emphasis border'">
                   {{ conta.temSenha ? 'Senha ativa' : 'Sem senha' }}
                 </span>

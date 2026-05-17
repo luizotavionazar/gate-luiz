@@ -44,7 +44,7 @@ public class MeController {
 
     @GetMapping("/roles")
     Map<String, Object> meusRoles(@AuthenticationPrincipal Jwt jwt) {
-        Long idUsuario = adminVerificador.extrairIdUsuario(jwt);
+        String idUsuario = adminVerificador.extrairIdUsuario(jwt);
         List<RoleResponse> roles = usuarioRoleRepository
                 .findByIdUsuarioWithRolesAndPermissoes(idUsuario)
                 .stream()

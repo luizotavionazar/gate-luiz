@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record UsuarioComRolesResponse(
-        Long idUsuario,
+        String publicId,
         String nome,
         String email,
         String telefone,

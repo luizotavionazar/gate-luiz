@@ -3,7 +3,7 @@ package br.com.luizotavionazar.authluiz.api.autenticacao.dto;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 
 public record LoginResponse(
-        Integer idUsuario,
+        String publicId,
         String nome,
         String email,
         Boolean temSenha,
@@ -17,7 +17,7 @@ public record LoginResponse(
         String mensagem) {
     public static LoginResponse from(Usuario usuario, boolean temLoginGoogle, String token, long expiresInMinutes) {
         return new LoginResponse(
-                usuario.getId(),
+                usuario.getPublicId(),
                 usuario.getNome(),
                 usuario.getEmail(),
                 usuario.possuiSenha(),

@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
-
 @RestController
 @RequestMapping("/auth/me")
 @RequiredArgsConstructor
@@ -43,8 +42,8 @@ public class ContaController {
 
     @GetMapping
     public ResponseEntity<ContaResponse> minhaConta(@AuthenticationPrincipal Jwt jwt) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(contaService.obterMinhaConta(idUsuario));
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(contaService.obterMinhaConta(publicId));
     }
 
     @Auditavel(acao = AcaoAuditoria.ALTERAR_NOME)
@@ -53,8 +52,8 @@ public class ContaController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody AtualizarNomeRequest request
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(contaService.atualizarNome(idUsuario, request));
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(contaService.atualizarNome(publicId, request));
     }
 
     @Auditavel(acao = AcaoAuditoria.ALTERAR_EMAIL_SOLICITADO)
@@ -64,8 +63,8 @@ public class ContaController {
             @Valid @RequestBody AtualizarEmailRequest request,
             HttpServletRequest httpRequest
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(contaService.atualizarEmail(idUsuario, request, httpRequest.getRemoteAddr()));
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(contaService.atualizarEmail(publicId, request, httpRequest.getRemoteAddr()));
     }
 
     @Auditavel(acao = AcaoAuditoria.ALTERAR_SENHA, categoria = CategoriaAuditoria.SEGURANCA)
@@ -74,8 +73,8 @@ public class ContaController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody AtualizarSenhaRequest request
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(contaService.atualizarSenha(idUsuario, request));
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(contaService.atualizarSenha(publicId, request));
     }
 
     @Auditavel(acao = AcaoAuditoria.ALTERAR_TELEFONE)
@@ -85,8 +84,8 @@ public class ContaController {
             @Valid @RequestBody AtualizarTelefoneRequest request,
             HttpServletRequest httpRequest
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(contaService.atualizarTelefone(idUsuario, request, httpRequest.getRemoteAddr()));
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(contaService.atualizarTelefone(publicId, request, httpRequest.getRemoteAddr()));
     }
 
     @Auditavel(acao = AcaoAuditoria.CONTA_DELETADA, categoria = CategoriaAuditoria.SEGURANCA)
@@ -95,9 +94,9 @@ public class ContaController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody(required = false) DeletarContaRequest request
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
+        String publicId = jwt.getSubject();
         permLuizService.notificarDelecaoUsuario(jwt.getTokenValue());
-        contaService.deletarConta(idUsuario, request);
+        contaService.deletarConta(publicId, request);
         return ResponseEntity.noContent().build();
     }
 }

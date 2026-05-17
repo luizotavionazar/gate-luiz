@@ -38,8 +38,8 @@ public class OAuthController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody GoogleLoginRequest request
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(googleAuthService.vincular(idUsuario, request));
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(googleAuthService.vincular(publicId, request));
     }
 
     @Auditavel(acao = AcaoAuditoria.DESVINCULAR_GOOGLE)
@@ -48,7 +48,7 @@ public class OAuthController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody(required = false) DesvincularGoogleRequest request
     ) {
-        Integer idUsuario = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(googleAuthService.desvincular(idUsuario, request));
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(googleAuthService.desvincular(publicId, request));
     }
 }

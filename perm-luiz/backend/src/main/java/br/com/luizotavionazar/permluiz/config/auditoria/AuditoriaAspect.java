@@ -40,7 +40,7 @@ public class AuditoriaAspect {
         String metodo = req != null ? req.getMethod() : null;
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        Long idUsuario = extrairIdUsuario(auth);
+        String idUsuario = extrairIdUsuario(auth);
 
         try {
             Object resultado = pjp.proceed();
@@ -78,14 +78,9 @@ public class AuditoriaAspect {
         return attrs != null ? attrs.getRequest() : null;
     }
 
-    private Long extrairIdUsuario(Authentication auth) {
+    private String extrairIdUsuario(Authentication auth) {
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
-            String subject = jwtAuth.getToken().getSubject();
-            try {
-                return Long.valueOf(subject);
-            } catch (NumberFormatException e) {
-                return null;
-            }
+            return jwtAuth.getToken().getSubject();
         }
         return null;
     }

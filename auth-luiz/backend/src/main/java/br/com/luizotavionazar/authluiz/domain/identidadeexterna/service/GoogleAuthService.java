@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 public class GoogleAuthService {
@@ -74,11 +73,11 @@ public class GoogleAuthService {
     }
 
     @Transactional
-    public ContaResponse vincular(Integer idUsuario, GoogleLoginRequest request) {
+    public ContaResponse vincular(String publicId, GoogleLoginRequest request) {
         Jwt googleJwt = googleIdTokenValidatorService.validar(request.idToken());
         GoogleUsuarioInfo googleUsuario = extrairUsuario(googleJwt);
 
-        Usuario usuario = usuarioRepository.findById(idUsuario)
+        Usuario usuario = usuarioRepository.findByPublicId(publicId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
 
         if (!usuario.isEmailVerificado()) {
@@ -91,6 +90,7 @@ public class GoogleAuthService {
                     "O e-mail da conta Google deve ser igual ao e-mail da sua conta!");
         }
 
+        Integer idUsuario = usuario.getId();
         if (identidadeExternaRepository.existsByUsuarioIdAndProvider(idUsuario, ProviderExterno.GOOGLE)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Esta conta já está vinculada ao Google!");
@@ -107,10 +107,11 @@ public class GoogleAuthService {
     }
 
     @Transactional
-    public ContaResponse desvincular(Integer idUsuario, DesvincularGoogleRequest request) {
-        Usuario usuario = usuarioRepository.findById(idUsuario)
+    public ContaResponse desvincular(String publicId, DesvincularGoogleRequest request) {
+        Usuario usuario = usuarioRepository.findByPublicId(publicId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
 
+        Integer idUsuario = usuario.getId();
         if (!identidadeExternaRepository.existsByUsuarioIdAndProvider(idUsuario, ProviderExterno.GOOGLE)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Esta conta não está vinculada ao Google!");

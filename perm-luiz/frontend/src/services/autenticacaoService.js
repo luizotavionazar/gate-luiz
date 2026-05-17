@@ -6,7 +6,7 @@ export function salvarSessao(loginResponse) {
   const expiresAt = Date.now() + loginResponse.expiresInMinutes * 60 * 1000
   localStorage.setItem(TOKEN_KEY, loginResponse.token)
   localStorage.setItem(USER_KEY, JSON.stringify({
-    idUsuario: loginResponse.idUsuario,
+    publicId: loginResponse.publicId,
     nome: loginResponse.nome,
     email: loginResponse.email
   }))
@@ -38,7 +38,7 @@ export function salvarSessaoDoFragment(jwt) {
   const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
   localStorage.setItem(TOKEN_KEY, jwt)
   localStorage.setItem(USER_KEY, JSON.stringify({
-    idUsuario: Number(payload.sub),
+    publicId: payload.sub,
     nome: payload.name,
     email: payload.email
   }))

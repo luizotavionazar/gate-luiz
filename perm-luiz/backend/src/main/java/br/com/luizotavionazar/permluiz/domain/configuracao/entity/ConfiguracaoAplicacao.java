@@ -21,7 +21,7 @@ public class ConfiguracaoAplicacao {
     @Column(nullable = false)
     private Boolean setupConcluido;
 
-    private Long idAdminMestre;
+    private String idAdminMestre;
 
     @Column(nullable = false)
     private LocalDateTime dataCriacao;

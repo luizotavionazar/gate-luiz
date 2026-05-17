@@ -5,6 +5,7 @@ import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.configuracao.service.SetupService;
+import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class AuditoriaAspect {
 
     private final AuditoriaService auditoriaService;
     private final SetupService setupService;
+    private final UsuarioRepository usuarioRepository;
 
     @Around("@annotation(auditavel)")
     public Object auditar(ProceedingJoinPoint pjp, Auditavel auditavel) throws Throwable {
@@ -87,11 +89,10 @@ public class AuditoriaAspect {
     private Long extrairIdUsuario(Authentication auth) {
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             String subject = jwtAuth.getToken().getSubject();
-            try {
-                return Long.valueOf(subject);
-            } catch (NumberFormatException e) {
-                return null;
-            }
+            if (subject == null) return null;
+            return usuarioRepository.findByPublicId(subject)
+                    .map(u -> u.getId().longValue())
+                    .orElse(null);
         }
         return null;
     }

@@ -15,12 +15,12 @@ public class AdminVerificador {
 
     private final ConfiguracaoAplicacaoRepository configuracaoRepository;
 
-    public Long extrairIdUsuario(Jwt jwt) {
-        return Long.parseLong(jwt.getSubject());
+    public String extrairIdUsuario(Jwt jwt) {
+        return jwt.getSubject();
     }
 
     public boolean isAdmin(Jwt jwt) {
-        Long idUsuario = extrairIdUsuario(jwt);
+        String idUsuario = extrairIdUsuario(jwt);
         return configuracaoRepository.findById(1L)
                 .map(c -> idUsuario.equals(c.getIdAdminMestre()))
                 .orElse(false);
@@ -28,7 +28,7 @@ public class AdminVerificador {
 
     @Transactional
     public void exigirAdmin(Jwt jwt) {
-        Long idUsuario = extrairIdUsuario(jwt);
+        String idUsuario = extrairIdUsuario(jwt);
         ConfiguracaoAplicacao config = configuracaoRepository.findById(1L)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR));
 
@@ -45,7 +45,7 @@ public class AdminVerificador {
 
     @Transactional
     public void resetarAdmin(Jwt jwt) {
-        Long idUsuario = extrairIdUsuario(jwt);
+        String idUsuario = extrairIdUsuario(jwt);
         configuracaoRepository.findById(1L).ifPresent(config -> {
             if (idUsuario.equals(config.getIdAdminMestre())) {
                 config.setIdAdminMestre(null);

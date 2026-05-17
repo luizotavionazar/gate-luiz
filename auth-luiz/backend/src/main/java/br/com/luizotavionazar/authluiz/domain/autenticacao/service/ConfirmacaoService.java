@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+
 @Service
 @RequiredArgsConstructor
 public class ConfirmacaoService {
@@ -26,7 +27,8 @@ public class ConfirmacaoService {
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
-    public void confirmarEmail(Integer idUsuario, String codigo) {
+    public void confirmarEmail(String publicId, String codigo) {
+        Integer idUsuario = resolverIdInterno(publicId);
         TipoTokenConfirmacao tipo = detectarTipoPendente(idUsuario);
 
         TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValidoPorUsuario(idUsuario, tipo, codigo);
@@ -53,7 +55,8 @@ public class ConfirmacaoService {
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
-    public void confirmarTelefone(Integer idUsuario, String codigo) {
+    public void confirmarTelefone(String publicId, String codigo) {
+        Integer idUsuario = resolverIdInterno(publicId);
         TipoTokenConfirmacao tipo = detectarTipoPendenteTelefone(idUsuario);
         TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValidoPorUsuario(idUsuario, tipo, codigo);
         Usuario usuario = token.getUsuario();
@@ -78,9 +81,10 @@ public class ConfirmacaoService {
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public MensagemResponse enviarVerificacaoEmail(Integer idUsuario, String ip) {
-        Usuario usuario = usuarioRepository.findById(idUsuario)
+    public MensagemResponse enviarVerificacaoEmail(String publicId, String ip) {
+        Usuario usuario = usuarioRepository.findByPublicId(publicId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
+        Integer idUsuario = usuario.getId();
 
         envioCodigoRateLimitService.validarLimitePorIp(ip);
 
@@ -108,9 +112,10 @@ public class ConfirmacaoService {
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public MensagemResponse enviarVerificacaoTelefone(Integer idUsuario, String ip) {
-        Usuario usuario = usuarioRepository.findById(idUsuario)
+    public MensagemResponse enviarVerificacaoTelefone(String publicId, String ip) {
+        Usuario usuario = usuarioRepository.findByPublicId(publicId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
+        Integer idUsuario = usuario.getId();
 
         envioCodigoRateLimitService.validarLimitePorIp(ip);
         notificacaoTelefonePort.validarDisponibilidade();
@@ -136,6 +141,12 @@ public class ConfirmacaoService {
         }
 
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não há verificação de telefone pendente.");
+    }
+
+    private Integer resolverIdInterno(String publicId) {
+        return usuarioRepository.findByPublicId(publicId)
+                .map(Usuario::getId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
     }
 
     private TipoTokenConfirmacao detectarTipoPendente(Integer idUsuario) {

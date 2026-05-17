@@ -23,7 +23,7 @@ public class LogAuditoria {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long idUsuario;
+    private String idUsuario;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

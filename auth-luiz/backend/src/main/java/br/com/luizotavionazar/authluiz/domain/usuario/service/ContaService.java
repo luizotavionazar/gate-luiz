@@ -51,8 +51,9 @@ public class ContaService {
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
 
     @Transactional
-    public ContaResponse obterMinhaConta(Integer idUsuario) {
-        Usuario usuario = buscarUsuario(idUsuario);
+    public ContaResponse obterMinhaConta(String publicId) {
+        Usuario usuario = buscarUsuario(publicId);
+        Integer idUsuario = usuario.getId();
 
         if (usuario.getEmailPendente() != null
                 && !tokenConfirmacaoService.temTokenAtivo(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
@@ -66,14 +67,14 @@ public class ContaService {
             usuario.setTelefonePendente(null);
         }
 
-        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(idUsuario,
                 ProviderExterno.GOOGLE);
         return ContaResponse.from(usuario, temLoginGoogle);
     }
 
     @Transactional
-    public ContaResponse atualizarNome(Integer idUsuario, AtualizarNomeRequest request) {
-        Usuario usuario = buscarUsuario(idUsuario);
+    public ContaResponse atualizarNome(String publicId, AtualizarNomeRequest request) {
+        Usuario usuario = buscarUsuario(publicId);
 
         if (!usuario.isEmailVerificado()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -90,8 +91,8 @@ public class ContaService {
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public ContaResponse atualizarEmail(Integer idUsuario, AtualizarEmailRequest request, String ip) {
-        Usuario usuario = buscarUsuario(idUsuario);
+    public ContaResponse atualizarEmail(String publicId, AtualizarEmailRequest request, String ip) {
+        Usuario usuario = buscarUsuario(publicId);
 
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                 ProviderExterno.GOOGLE);
@@ -118,6 +119,7 @@ public class ContaService {
 
         envioCodigoRateLimitService.validarLimitePorIp(ip);
 
+        Integer idUsuario = usuario.getId();
         if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_EMAIL)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "Aguarde alguns instantes antes de solicitar uma nova confirmação de e-mail!");
@@ -125,7 +127,7 @@ public class ContaService {
 
         validarLimiteAlteracaoEmail(idUsuario);
 
-        usuarioRepository.atualizarEmailPendente(usuario.getId(), emailNormalizado);
+        usuarioRepository.atualizarEmailPendente(idUsuario, emailNormalizado);
         usuario.setEmailPendente(emailNormalizado); // apenas para o DTO da resposta, entidade já desanexada
 
         String codigo = tokenConfirmacaoService.criarTokenAlteracaoEmail(usuario, emailNormalizado, ip);
@@ -136,8 +138,8 @@ public class ContaService {
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public ContaResponse atualizarTelefone(Integer idUsuario, AtualizarTelefoneRequest request, String ip) {
-        Usuario usuario = buscarUsuario(idUsuario);
+    public ContaResponse atualizarTelefone(String publicId, AtualizarTelefoneRequest request, String ip) {
+        Usuario usuario = buscarUsuario(publicId);
 
         if (!usuario.isEmailVerificado()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -166,12 +168,13 @@ public class ContaService {
                     "O novo telefone deve ser diferente do telefone atual!");
         }
 
-        if (usuarioRepository.existsByTelefoneAndIdNot(telefoneNormalizado, idUsuario)) {
+        if (usuarioRepository.existsByTelefoneAndIdNot(telefoneNormalizado, usuario.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Telefone já cadastrado!");
         }
 
         envioCodigoRateLimitService.validarLimitePorIp(ip);
 
+        Integer idUsuario = usuario.getId();
         if (tokenConfirmacaoService.estaDentroDoCooldown(idUsuario, TipoTokenConfirmacao.ALTERACAO_TELEFONE)) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "Aguarde alguns instantes antes de solicitar um novo código de verificação!");
@@ -190,8 +193,8 @@ public class ContaService {
     }
 
     @Transactional
-    public MensagemResponse atualizarSenha(Integer idUsuario, AtualizarSenhaRequest request) {
-        Usuario usuario = buscarUsuario(idUsuario);
+    public MensagemResponse atualizarSenha(String publicId, AtualizarSenhaRequest request) {
+        Usuario usuario = buscarUsuario(publicId);
 
         if (!usuario.isEmailVerificado()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -230,8 +233,8 @@ public class ContaService {
     }
 
     @Transactional
-    public void deletarConta(Integer idUsuario, DeletarContaRequest request) {
-        Usuario usuario = buscarUsuario(idUsuario);
+    public void deletarConta(String publicId, DeletarContaRequest request) {
+        Usuario usuario = buscarUsuario(publicId);
 
         if (usuario.possuiSenha()) {
             String senha = request != null ? request.senha() : null;
@@ -284,8 +287,8 @@ public class ContaService {
         controleAlteracaoEmailRepository.save(controle);
     }
 
-    private Usuario buscarUsuario(Integer idUsuario) {
-        return usuarioRepository.findById(idUsuario)
+    private Usuario buscarUsuario(String publicId) {
+        return usuarioRepository.findByPublicId(publicId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conta não encontrada!"));
     }
 }
