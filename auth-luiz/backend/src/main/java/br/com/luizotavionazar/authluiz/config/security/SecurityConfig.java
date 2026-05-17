@@ -2,6 +2,7 @@ package br.com.luizotavionazar.authluiz.config.security;
 
 import br.com.luizotavionazar.authluiz.config.setup.SetupFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,6 +24,7 @@ public class SecurityConfig {
     private final JsonAuthenticationEntryPoint jsonAuthenticationEntryPoint;
     private final JsonAccessDeniedHandler jsonAccessDeniedHandler;
     private final SetupFilter setupFilter;
+    private final JwtBlacklistFilter jwtBlacklistFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -47,12 +49,12 @@ public class SecurityConfig {
                                 "/auth/recuperacao/redefinir"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/recuperacao/validar").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/auth/verificacao/confirmar").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/auth/me/nome", "/auth/me/email", "/auth/me/senha").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(setupFilter, org.springframework.security.web.context.SecurityContextHolderFilter.class)
+                .addFilterAfter(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(jsonAuthenticationEntryPoint)
                         .accessDeniedHandler(jsonAccessDeniedHandler)

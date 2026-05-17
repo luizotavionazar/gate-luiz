@@ -4,6 +4,7 @@ public enum AcaoAuditoria {
 
     // SEGURANCA
     LOGIN_SUCESSO,
+    LOGOUT,
     LOGIN_FALHA,
     CADASTRO,
     RECUPERACAO_SENHA_INICIADA,

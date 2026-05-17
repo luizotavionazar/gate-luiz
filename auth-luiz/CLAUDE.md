@@ -82,7 +82,9 @@ docker compose up --build
 - `ControleEnvioCodigoIp` (chave: `ip`) — **proteção de rede por IP**: impede que um IP dispare envios em massa pela API, mesmo sem ter conta. Cobre todos os canais (e-mail e telefone).
 Os dois são ortogonais: um atacante sem conta é bloqueado pelo IP mas não tem `idUsuario`; um usuário legítimo trocando e-mail de vários IPs é bloqueado pelo usuário mas não pelo IP. Nenhum substitui o outro.
 
-**Migrações de banco:** Flyway (`db/migration/V*.sql`). O schema usa identificadores camelCase entre aspas (Hibernate `PhysicalNamingStrategyStandardImpl` + `globally_quoted_identifiers=true`). O DDL está como `validate` — sempre crie um novo arquivo de migração para alterações no schema. `V1__schema_inicial.sql` contém o schema base; V2–V14 aplicam alterações incrementais.
+**Logout e blacklist de tokens:** O logout é stateful por design — ao chamar `POST /auth/logout`, o `jti` (UUID único por token, incluído como claim na geração) é inserido na tabela `tokenBlacklist` com seu `expiraEm`. O `JwtBlacklistFilter` (`config/security/`), registrado após o `BearerTokenAuthenticationFilter` no chain, verifica a cada requisição autenticada se o `jti` consta na blacklist — se sim, retorna 401 imediatamente. Tokens sem `jti` (gerados antes desta funcionalidade) simplesmente não são verificáveis e passam normalmente. O frontend (`fazerLogout()` em `autenticacaoService.js`) chama a API antes de limpar o localStorage; se a chamada falhar (ex.: sem rede), o logout local ocorre mesmo assim. O interceptor 401 de `api.js` e a expiração detectada pelo router usam `logout()` simples (sem chamar a API) pois o token já é inválido.
+
+**Migrações de banco:** Flyway (`db/migration/V*.sql`). O schema usa identificadores camelCase entre aspas (Hibernate `PhysicalNamingStrategyStandardImpl` + `globally_quoted_identifiers=true`). O DDL está como `validate` — sempre crie um novo arquivo de migração para alterações no schema. `V1__schema_inicial.sql` contém o schema base; V2–V15 aplicam alterações incrementais.
 
 **Testes:** Utilizam Testcontainers com uma instância real de Postgres (sem mocks).
 
@@ -103,6 +105,7 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 |--------|---------|--------------|-----------|
 | POST | `/auth/cadastro` | Pública | Cadastro de novo usuário |
 | POST | `/auth/login` | Pública | Login local: e-mail ou telefone + senha |
+| POST | `/auth/logout` | JWT | Invalida o token atual inserindo seu `jti` na blacklist — o token é rejeitado em todas as requisições subsequentes até expirar naturalmente |
 | POST | `/auth/oauth/google` | Pública | Login/cadastro via Google (retorna 409 se já existe conta com o e-mail — vincular via conta) |
 | POST | `/auth/oauth/google/vincular` | JWT | Vincula Google à conta autenticada (e-mail do Google deve ser igual ao da conta) |
 | DELETE | `/auth/oauth/google/vincular` | JWT | Desvincula Google da conta (exige senha definida para não perder o acesso) |
@@ -223,7 +226,11 @@ O sistema de auditoria registra automaticamente ações dos usuários na tabela 
 - `SEGURANCA` — sempre registrado (login, cadastro, senha, conta deletada, OAuth). Não tem toggle.
 - `ATIVIDADE` — configurável via setup (campo `auditoriaAtividade` na tabela `configuracaoAplicacao`, padrão: `true`). Lido pelo `AuditoriaAspect` em cada requisição via `SetupService`.
 
-**Limpeza automática:** `AuditoriaLimpezaService` roda diariamente às 03:00 e exclui logs com `criadoEm < agora - auditoriaRetencaoDias` (padrão: 90 dias, configurável via setup).
+**Limpeza automática:** centralizada no `LimpezaAgendadaService` (`config/agendamento/`), que roda diariamente às 03:00 e delega para cada serviço de domínio. Cada domínio controla sua própria regra de retenção; o agendador apenas orquestra. Falhas são isoladas por domínio — se um job falhar, os demais continuam. Para adicionar nova limpeza: implemente o método no serviço de domínio e registre a chamada em `LimpezaAgendadaService.limpar()`.
+
+Retenções atuais:
+- **Log de auditoria** (`AuditoriaLimpezaService`): `auditoriaRetencaoDias` dias (padrão 90, configurável via setup)
+- **Blacklist de tokens** (`LogoutService`): até `expiraEm` do token (máx. `jwt.expiration-minutes`)
 
 **Detalhes do log (`AuditoriaService.definirDetalhes`):**
 - Endpoints **anônimos** (login, cadastro, recuperação de senha, confirmação de e-mail, login Google): incluir `"E-mail: x@y.com"` — é a única forma de identificar a conta, pois `idUsuario` é null.

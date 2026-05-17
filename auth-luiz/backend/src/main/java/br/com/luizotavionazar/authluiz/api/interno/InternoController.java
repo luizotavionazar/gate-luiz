@@ -1,15 +1,13 @@
 package br.com.luizotavionazar.authluiz.api.interno;
 
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LogoutService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -22,9 +20,18 @@ public class InternoController {
 
     private final UsuarioRepository usuarioRepository;
     private final IdentidadeExternaRepository identidadeExternaRepository;
+    private final LogoutService logoutService;
 
     @Value("${auth.service.key}")
     private String serviceKey;
+
+    @GetMapping("/tokens/{jti}/invalido")
+    boolean tokenEstaInvalidado(@PathVariable String jti, @RequestHeader("X-Service-Key") String chave) {
+        if (!serviceKey.equals(chave)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chave de serviço inválida!");
+        }
+        return logoutService.estaInvalidado(jti);
+    }
 
     @GetMapping("/usuarios")
     List<UsuarioInternoResponse> listarUsuarios(@RequestHeader("X-Service-Key") String chave) {

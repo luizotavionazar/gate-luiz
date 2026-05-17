@@ -11,11 +11,14 @@ import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.AutenticacaoService;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LogoutService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 public class AutenticacaoController {
 
     private final AutenticacaoService autenticacaoService;
+    private final LogoutService logoutService;
 
     @Auditavel(acao = AcaoAuditoria.CADASTRO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/cadastro")
@@ -56,6 +60,13 @@ public class AutenticacaoController {
     @PostMapping("/recuperacao/redefinir")
     public ResponseEntity<MensagemResponse> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request) {
         return ResponseEntity.ok(autenticacaoService.redefinirSenha(request));
+    }
+
+    @Auditavel(acao = AcaoAuditoria.LOGOUT, categoria = CategoriaAuditoria.SEGURANCA)
+    @PostMapping("/logout")
+    public ResponseEntity<MensagemResponse> logout(@AuthenticationPrincipal Jwt jwt) {
+        logoutService.invalidar(jwt);
+        return ResponseEntity.ok(new MensagemResponse("Logout realizado com sucesso."));
     }
 
     private String extrairIp(HttpServletRequest request) {
