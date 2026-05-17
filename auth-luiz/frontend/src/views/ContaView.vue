@@ -40,6 +40,32 @@
             </button>
           </div>
         </div>
+
+        <div v-if="conta.telefonePendente" class="alert alert-info mb-4">
+          <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+            <div class="flex-grow-1">
+              <strong>Alteração de telefone pendente!</strong><br>
+              Confirme a alteração para <strong>{{ conta.telefonePendente }}</strong>.
+            </div>
+            <button class="btn btn-sm btn-info flex-shrink-0" @click="solicitarConfirmacaoAlteracaoTelefone">
+              Confirmar alteração
+            </button>
+          </div>
+        </div>
+
+        <div v-else-if="conta.telefone && !conta.telefoneVerificado" class="alert alert-warning mb-4">
+          <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+            <div class="flex-grow-1">
+              <strong>Telefone não verificado!</strong><br>
+              Confirme o número <strong>{{ conta.telefone }}</strong> para ativá-lo.
+            </div>
+            <button class="btn btn-sm btn-warning flex-shrink-0" :disabled="solicitandoVerificacaoTelefone" @click="solicitarVerificacaoTelefone">
+              {{ solicitandoVerificacaoTelefone ? 'Enviando...' : 'Verificar telefone' }}
+            </button>
+          </div>
+          <div v-if="erroSolicitarVerificacaoTelefone" class="small mt-2 text-danger-emphasis">{{ erroSolicitarVerificacaoTelefone }}</div>
+        </div>
+
         <div class="card shadow border-0 rounded-4 mb-4">
           <div class="card-body p-4">
             <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
@@ -109,6 +135,9 @@
                   <div class="mb-3">
                     <label class="form-label">E-mail</label>
                     <input v-model="formEmail.email" type="email" class="form-control" placeholder="seuemail@exemplo.com" required />
+                    <div v-if="conta.emailPendente" class="form-text text-warning-emphasis">
+                      <i class="bi bi-clock me-1"></i>Aguardando confirmação.
+                    </div>
                   </div>
 
                   <div v-if="mensagemEmail" class="alert alert-success py-2 small">{{ mensagemEmail }}</div>
@@ -132,6 +161,9 @@
                   <div class="mb-3">
                     <label class="form-label">Telefone</label>
                     <input v-model="formTelefone.telefone" type="tel" class="form-control" placeholder="+5511987654321" />
+                    <div v-if="conta.telefonePendente" class="form-text text-warning-emphasis">
+                      <i class="bi bi-clock me-1"></i>Aguardando confirmação.
+                    </div>
                   </div>
 
                   <div v-if="mensagemTelefone" class="alert alert-success py-2 small">{{ mensagemTelefone }}</div>
@@ -379,10 +411,13 @@ import {
   buscarMinhaConta,
   deletarMinhaConta,
   desvincularGoogle,
+  fazerLogout,
   getToken,
   logout,
   marcarSenhaNaSessao,
   reenviarVerificacao,
+  reenviarVerificacaoTelefone,
+  verificarSePermAdmin,
   vincularGoogle
 } from '../services/autenticacaoService'
 import { getGoogleClientId, renderizarBotaoGoogle } from '../services/googleIdentityService'
@@ -414,6 +449,9 @@ const erroTelefone = ref('')
 
 const solicitandoVerificacao = ref(false)
 const erroSolicitarVerificacao = ref('')
+
+const solicitandoVerificacaoTelefone = ref(false)
+const erroSolicitarVerificacaoTelefone = ref('')
 
 const googleVincularButtonRef = ref(null)
 const mensagemGoogle = ref('')
@@ -452,8 +490,8 @@ const mostrarValidacaoConfirmacao = computed(() => confirmacaoEmFoco.value || fo
 
 function preencherFormularios() {
   formNome.nome = conta.value?.nome || ''
-  formEmail.email = conta.value?.email || ''
-  formTelefone.telefone = conta.value?.telefone || ''
+  formEmail.email = conta.value?.emailPendente || conta.value?.email || ''
+  formTelefone.telefone = conta.value?.telefonePendente || conta.value?.telefone || ''
 }
 
 function limparMensagens() {
@@ -477,8 +515,8 @@ const isPermAdmin = ref(false)
 
 async function verificarSeEAdmin() {
   try {
-    const response = await api.get('/auth/me/perm-admin')
-    isPermAdmin.value = response.data?.isAdmin === true
+    const data = await verificarSePermAdmin()
+    isPermAdmin.value = data?.isAdmin === true
   } catch {
     isPermAdmin.value = false
   }
@@ -488,8 +526,8 @@ function abrirPermLuiz() {
   window.open(`${PERM_LUIZ_URL}#token=${getToken()}`, '_blank')
 }
 
-function sair() {
-  logout()
+async function sair() {
+  await fazerLogout()
   router.push('/login')
 }
 
@@ -558,7 +596,11 @@ async function salvarTelefone() {
     conta.value = await atualizarMeuTelefone({ telefone: telefoneParaEnviar })
     atualizarSessaoComConta(conta.value)
     preencherFormularios()
-    mensagemTelefone.value = telefoneParaEnviar ? 'Telefone salvo com sucesso!' : 'Telefone removido com sucesso!'
+    if (conta.value.telefonePendente) {
+      router.push('/verificar-telefone')
+    } else {
+      mensagemTelefone.value = 'Telefone removido com sucesso!'
+    }
   } catch (e) {
     erroTelefone.value = extrairMensagemErro(e, 'Não foi possível atualizar o telefone.')
     console.error(e)
@@ -582,6 +624,23 @@ async function solicitarVerificacao() {
 
 function solicitarConfirmacaoAlteracao() {
   router.push({ path: '/verificar-email', query: { tipo: 'alteracao' } })
+}
+
+function solicitarConfirmacaoAlteracaoTelefone() {
+  router.push('/verificar-telefone')
+}
+
+async function solicitarVerificacaoTelefone() {
+  erroSolicitarVerificacaoTelefone.value = ''
+  solicitandoVerificacaoTelefone.value = true
+  try {
+    await reenviarVerificacaoTelefone()
+    router.push('/verificar-telefone')
+  } catch (e) {
+    erroSolicitarVerificacaoTelefone.value = extrairMensagemErro(e, 'Não foi possível enviar o código de verificação.')
+  } finally {
+    solicitandoVerificacaoTelefone.value = false
+  }
 }
 
 async function salvarSenha() {

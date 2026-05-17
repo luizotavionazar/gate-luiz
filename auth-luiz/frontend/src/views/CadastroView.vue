@@ -22,7 +22,6 @@
             <div class="col-md-12 mb-3">
               <label for="telefone" class="form-label">
                 Telefone
-                <span class="text-muted fw-normal" style="font-size:0.85em;">(opcional)</span>
               </label>
               <input id="telefone" v-model="form.telefone" type="tel" class="form-control" placeholder="+5511987654321" />
               <div v-if="form.telefone.length > 0" class="small mt-1" :class="telefoneValido ? 'text-success' : 'text-danger'">

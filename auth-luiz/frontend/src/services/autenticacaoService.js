@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+const PERM_LUIZ_API_URL = import.meta.env.VITE_PERM_LUIZ_API_URL || 'http://localhost:8081'
 
 const authApi = axios.create({
   baseURL: API_BASE_URL
@@ -156,6 +157,20 @@ export function logout() {
   }
 }
 
+export async function fazerLogout() {
+  const token = getToken()
+  if (token) {
+    try {
+      await authApi.post('/auth/logout', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+    } catch {
+      // falha na API não impede a limpeza local
+    }
+  }
+  logout()
+}
+
 export async function deletarMinhaConta(dados) {
   const response = await authApi.delete('/auth/me', {
     headers: {
@@ -167,7 +182,7 @@ export async function deletarMinhaConta(dados) {
 }
 
 export async function confirmarEmail(codigo) {
-  const response = await authApi.post('/auth/verificacao/confirmar', { codigo }, {
+  const response = await authApi.post('/auth/verificacao/email/confirmar', { codigo }, {
     headers: {
       Authorization: `Bearer ${getToken()}`
     }
@@ -176,7 +191,7 @@ export async function confirmarEmail(codigo) {
 }
 
 export async function reenviarVerificacao() {
-  const response = await authApi.post('/auth/verificacao/reenviar', {}, {
+  const response = await authApi.post('/auth/verificacao/email/enviar', {}, {
     headers: {
       Authorization: `Bearer ${getToken()}`
     }
@@ -185,10 +200,35 @@ export async function reenviarVerificacao() {
 }
 
 export async function reenviarConfirmacaoAlteracaoEmail() {
-  const response = await authApi.post('/auth/verificacao/reenviar-alteracao-email', {}, {
+  const response = await authApi.post('/auth/verificacao/email/enviar', {}, {
     headers: {
       Authorization: `Bearer ${getToken()}`
     }
+  })
+  return response.data
+}
+
+export async function confirmarTelefone(codigo) {
+  const response = await authApi.post('/auth/verificacao/telefone/confirmar', { codigo }, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`
+    }
+  })
+  return response.data
+}
+
+export async function reenviarVerificacaoTelefone() {
+  const response = await authApi.post('/auth/verificacao/telefone/enviar', {}, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`
+    }
+  })
+  return response.data
+}
+
+export async function verificarSePermAdmin() {
+  const response = await axios.get(`${PERM_LUIZ_API_URL}/me/admin`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
   })
   return response.data
 }

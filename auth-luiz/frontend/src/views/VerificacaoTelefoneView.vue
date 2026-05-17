@@ -5,15 +5,15 @@
 
         <template v-if="sucesso">
           <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-          <h1 class="h4 fw-bold mt-3 mb-2">E-mail confirmado!</h1>
-          <p class="text-muted mb-4">O e-mail foi atualizado na sua conta.</p>
+          <h1 class="h4 fw-bold mt-3 mb-2">Telefone confirmado!</h1>
+          <p class="text-muted mb-4">O número foi atualizado na sua conta.</p>
           <router-link to="/conta" class="btn btn-primary">Ir para minha conta</router-link>
         </template>
 
         <template v-else>
-          <i class="bi bi-envelope-check text-primary" style="font-size: 3rem;"></i>
-          <h1 class="h4 fw-bold mt-3 mb-1">Verifique seu e-mail</h1>
-          <p class="text-muted mb-4">Digite o código de 6 dígitos enviado para a caixa de entrada de {{ usuario?.emailPendente }}.</p>
+          <i class="bi bi-phone text-primary" style="font-size: 3rem;"></i>
+          <h1 class="h4 fw-bold mt-3 mb-1">Verifique seu telefone</h1>
+          <p class="text-muted mb-4">Digite o código de 6 dígitos enviado para <strong>{{ telefoneExibido }}</strong> via WhatsApp ou SMS.</p>
 
           <form @submit.prevent="confirmar">
             <div class="d-flex justify-content-center gap-2 mb-3">
@@ -37,7 +37,7 @@
 
             <div class="d-grid mb-3">
               <button type="submit" class="btn btn-primary" :disabled="confirmando || codigoCompleto.length < 6">
-                {{ confirmando ? 'Confirmando...' : 'Confirmar e-mail' }}
+                {{ confirmando ? 'Confirmando...' : 'Confirmar telefone' }}
               </button>
             </div>
           </form>
@@ -61,16 +61,22 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import { confirmarEmail, reenviarConfirmacaoAlteracaoEmail, reenviarVerificacao } from '../services/autenticacaoService'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { buscarMinhaConta, confirmarTelefone, reenviarVerificacaoTelefone } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
-
-const route = useRoute()
-const tipoAlteracao = route.query.tipo === 'alteracao'
 
 const digitos = reactive(Array(6).fill(''))
 const inputs = ref([])
+const telefoneExibido = ref('')
+
+onMounted(async () => {
+  try {
+    const conta = await buscarMinhaConta()
+    telefoneExibido.value = conta.telefonePendente || conta.telefone || ''
+  } catch {
+    // exibe sem número se falhar
+  }
+})
 
 const sucesso = ref(false)
 const confirmando = ref(false)
@@ -111,7 +117,7 @@ async function confirmar() {
   confirmando.value = true
 
   try {
-    await confirmarEmail(codigoCompleto.value)
+    await confirmarTelefone(codigoCompleto.value)
     sucesso.value = true
   } catch (e) {
     erro.value = extrairMensagemErro(e, 'Código inválido ou expirado. Tente novamente.')
@@ -128,11 +134,7 @@ async function reenviar() {
   reenviando.value = true
 
   try {
-    if (tipoAlteracao) {
-      await reenviarConfirmacaoAlteracaoEmail()
-    } else {
-      await reenviarVerificacao()
-    }
+    await reenviarVerificacaoTelefone()
     mensagemReenvio.value = 'Novo código enviado com sucesso!'
   } catch (e) {
     erroReenvio.value = extrairMensagemErro(e, 'Não foi possível reenviar o código.')
