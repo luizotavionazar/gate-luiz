@@ -25,4 +25,17 @@ public class AuthLuizClient {
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
     }
+
+    public boolean tokenEstaInvalidado(String jti) {
+        try {
+            Boolean invalido = restClient.get()
+                    .uri(baseUrl + "/auth/interno/tokens/" + jti + "/invalido")
+                    .header("X-Service-Key", serviceKey)
+                    .retrieve()
+                    .body(Boolean.class);
+            return Boolean.TRUE.equals(invalido);
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }

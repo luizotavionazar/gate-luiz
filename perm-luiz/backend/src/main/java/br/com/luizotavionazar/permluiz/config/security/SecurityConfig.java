@@ -8,6 +8,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -20,6 +21,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JsonAuthenticationEntryPoint jsonAuthenticationEntryPoint;
+    private final JwtBlacklistFilter jwtBlacklistFilter;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -38,7 +40,8 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(jsonAuthenticationEntryPoint)
                         .jwt(Customizer.withDefaults())
-                );
+                )
+                .addFilterAfter(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }
