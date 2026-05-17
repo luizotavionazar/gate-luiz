@@ -83,6 +83,25 @@ npm run preview  # pré-visualização do build de produção
 - Listagem de todos os usuários do sistema (buscados via `GET /admin/usuarios`, que por sua vez chama o AuthLuiz)
 - Tabela com nome, email, roles atuais e data de cadastro
 - Modal por usuário para atribuir e remover roles
+- Modal de detalhes com ID público, email, telefone, datas e status da conta
+
+#### Convenção de cores dos badges de status
+
+| Cor | Classe Bootstrap | Significado |
+|-----|-----------------|-------------|
+| Verde | `bg-success` | Confirmado / ativo / vinculado |
+| Vermelho | `bg-danger` | Crítico — ausência que bloqueia ou prejudica a conta |
+| Amarelo | `bg-warning text-dark` | Atenção — algo pendente que vale resolver |
+| Cinza | `bg-secondary` | Neutro / não aplicável |
+
+Aplicação atual:
+
+| Campo | Verde | Vermelho | Amarelo | Cinza |
+|-------|-------|----------|---------|-------|
+| Email verificado | Sim | Não | — | — |
+| Telefone verificado | Sim | — | Não (cadastrado mas não verificado) | Sem telefone |
+| Senha definida | Sim | — | Não | — |
+| Google vinculado | Sim | — | — | Não |
 
 ## Comportamento dos guards de rota
 

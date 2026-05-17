@@ -244,8 +244,32 @@ function formatarData(data) {
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <div class="text-muted small mb-1">Última alteração</div>
-              <div class="small fw-semibold">{{ formatarData(usuarioDetalhes?.dataAtualiza) }}</div>
+              <div class="text-muted small mb-1">ID Público</div>
+              <div class="small fw-semibold font-monospace text-break">{{ usuarioDetalhes?.publicId || '—' }}</div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <div class="text-muted small mb-1">Email</div>
+                <div class="small fw-semibold text-break">{{ usuarioDetalhes?.email || '—' }}</div>
+              </div>
+              <div class="col-6">
+                <div class="text-muted small mb-1">Telefone</div>
+                <div class="small fw-semibold">{{ usuarioDetalhes?.telefone || '—' }}</div>
+              </div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-4">
+                <div class="text-muted small mb-1">Último login</div>
+                <div class="small fw-semibold">{{ formatarData(usuarioDetalhes?.ultimoLogin) }}</div>
+              </div>
+              <div class="col-4">
+                <div class="text-muted small mb-1">Última alteração</div>
+                <div class="small fw-semibold">{{ formatarData(usuarioDetalhes?.dataAtualiza) }}</div>
+              </div>
+              <div class="col-4">
+                <div class="text-muted small mb-1">Cadastro</div>
+                <div class="small fw-semibold">{{ formatarData(usuarioDetalhes?.dataCriacao) }}</div>
+              </div>
             </div>
             <div class="d-flex flex-column gap-2">
               <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
@@ -263,7 +287,7 @@ function formatarData(data) {
               </div>
               <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
                 <span class="small">Senha definida</span>
-                <span :class="usuarioDetalhes?.possuiSenha ? 'badge bg-success' : 'badge bg-secondary'">
+                <span :class="usuarioDetalhes?.possuiSenha ? 'badge bg-success' : 'badge bg-warning text-dark'">
                   {{ usuarioDetalhes?.possuiSenha ? 'Sim' : 'Não' }}
                 </span>
               </div>
