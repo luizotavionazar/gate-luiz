@@ -173,6 +173,16 @@ async function salvar() {
     sucesso.value = response.mensagem
     router.push('/login')
   } catch (e) {
+    const status = e?.response?.status
+    if (status >= 500 || status == null) {
+      try {
+        const statusSetup = await obterStatusSetup()
+        if (statusSetup.setupConcluido) {
+          router.push('/login')
+          return
+        }
+      } catch {}
+    }
     erro.value = extrairMensagemErro(e, 'Não foi possível salvar o setup.')
   } finally {
     carregando.value = false

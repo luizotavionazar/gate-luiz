@@ -10,6 +10,7 @@ import br.com.luizotavionazar.authluiz.domain.autenticacao.util.TokenUtils;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
+import br.com.luizotavionazar.authluiz.domain.notificacao.port.NotificacaoTelefonePort;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
@@ -23,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +38,7 @@ public class AutenticacaoService {
     private final ApplicationEventPublisher eventPublisher;
     private final TokenRecuperacaoSenhaRepository tokenRecuperacaoSenhaRepository;
     private final EmailService emailService;
+    private final NotificacaoTelefonePort notificacaoTelefonePort;
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
     private final PoliticaSenhaService politicaSenhaService;
     private final IdentidadeExternaRepository identidadeExternaRepository;
@@ -103,15 +107,25 @@ public class AutenticacaoService {
     public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request, String ip) {
         envioCodigoRateLimitService.validarLimitePorIp(ip);
 
-        String emailNormalizado = request.emailNormalizado();
+        if (!request.usarEmail()) {
+            notificacaoTelefonePort.validarDisponibilidade();
+        }
 
-        usuarioRepository.findByEmail(emailNormalizado).ifPresent(usuario -> {
+        Optional<Usuario> usuarioOpt = request.usarEmail()
+                ? usuarioRepository.findByEmail(request.emailNormalizado())
+                : usuarioRepository.findByTelefone(request.telefoneNormalizado());
+
+        String identificador = request.usarEmail()
+                ? request.emailNormalizado()
+                : request.telefoneNormalizado();
+
+        usuarioOpt.ifPresent(usuario -> {
             boolean contaGoogleOnly = !usuario.possuiSenha()
                     && identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                             ProviderExterno.GOOGLE);
-            if (contaGoogleOnly) {
-                return;
-            }
+            if (contaGoogleOnly) return;
+
+            if (!request.usarEmail() && !usuario.isTelefoneVerificado()) return;
 
             LocalDateTime agora = LocalDateTime.now();
 
@@ -133,35 +147,44 @@ public class AutenticacaoService {
 
             boolean aindaExisteTokenAtivo = tokenRecuperacaoSenhaRepository
                     .findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(usuario.getId())
-                    .filter(token -> !token.expirado())
+                    .filter(t -> !t.expirado())
                     .isPresent();
 
-            if (aindaExisteTokenAtivo) {
-                return;
-            }
+            if (aindaExisteTokenAtivo) return;
 
             String codigoBruto = TokenUtils.gerarCodigoNumerico6Digitos();
+            String tokenCancelamento = request.usarEmail() ? null : UUID.randomUUID().toString();
 
             TokenRecuperacaoSenha token = TokenRecuperacaoSenha.builder()
                     .usuario(usuario)
                     .codigo(codigoBruto)
                     .expiraEm(agora.plusMinutes(EXPIRACAO_TOKEN_MINUTES))
                     .ipSolicitacao(ip)
+                    .tokenCancelamento(tokenCancelamento)
                     .build();
 
             tokenRecuperacaoSenhaRepository.save(token);
-            emailService.enviarRecuperacaoSenha(usuario.getNome(), usuario.getEmail(), codigoBruto);
+
+            if (request.usarEmail()) {
+                emailService.enviarRecuperacaoSenha(usuario.getNome(), usuario.getEmail(), codigoBruto);
+            } else {
+                notificacaoTelefonePort.enviarCodigoVerificacao(usuario.getTelefone(), codigoBruto);
+                emailService.enviarAvisoRecuperacaoViaTelefone(
+                        usuario.getNome(), usuario.getEmail(), ip, agora, tokenCancelamento,
+                        usuario.getTelefone());
+            }
         });
 
-        AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
+        String prefixo = request.usarEmail() ? "E-mail: " : "Telefone: ";
+        AuditoriaService.definirDetalhes(prefixo + identificador);
         return mensagemGenericaRecuperacao();
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
-    public MensagemResponse redefinirSenha(RedefinirSenhaRequest request) {
-        String emailNormalizado = request.emailNormalizado();
-
-        Usuario usuario = usuarioRepository.findByEmail(emailNormalizado)
+    public MensagemResponse redefinirSenha(RedefinirSenhaRequest request, String ip) {
+        Usuario usuario = (request.usarEmail()
+                ? usuarioRepository.findByEmail(request.emailNormalizado())
+                : usuarioRepository.findByTelefone(request.telefoneNormalizado()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Código de recuperação inválido ou expirado!"));
 
@@ -204,12 +227,28 @@ public class AutenticacaoService {
         token.setEncerradoEm(agora);
         tokenRecuperacaoSenhaRepository.saveAndFlush(token);
 
-        AuditoriaService.definirDetalhes("E-mail: " + usuario.getEmail());
+        emailService.enviarNotificacaoRedefinicaoSenha(usuario.getNome(), usuario.getEmail(), ip, agora);
+
+        String prefixo = request.usarEmail() ? "E-mail: " : "Telefone: ";
+        AuditoriaService.definirDetalhes(prefixo +
+                (request.usarEmail() ? usuario.getEmail() : usuario.getTelefone()));
         return new MensagemResponse("Senha redefinida com sucesso!");
+    }
+
+    @Transactional
+    public MensagemResponse cancelarTokenRecuperacao(String tokenCancelamento) {
+        TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository
+                .findByTokenCancelamentoAndUsadoEmIsNullAndEncerradoEmIsNull(tokenCancelamento)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Link de cancelamento inválido ou já utilizado."));
+
+        token.setEncerradoEm(LocalDateTime.now());
+        tokenRecuperacaoSenhaRepository.saveAndFlush(token);
+        return new MensagemResponse("Recuperação de senha cancelada com sucesso.");
     }
 
     private MensagemResponse mensagemGenericaRecuperacao() {
         return new MensagemResponse(
-                "Enviaremos as instruções de recuperação caso exista uma conta vinculada a esse e-mail!");
+                "Enviaremos as instruções de recuperação caso exista uma conta vinculada a esse identificador!");
     }
 }

@@ -11,6 +11,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Properties;
 
 @Service
@@ -18,6 +20,7 @@ import java.util.Properties;
 public class EmailService {
 
     private final SetupService setupService;
+    private final IpGeolocalizacaoService ipGeolocalizacaoService;
 
     @Async
     public void enviarBoasVindas(String nome, String email) {
@@ -118,6 +121,206 @@ public class EmailService {
         );
 
         enviar(config, email, "Código de recuperação de senha - AuthLuiz", html);
+    }
+
+    @Async
+    public void enviarAvisoRecuperacaoViaTelefone(String nome, String email, String ip,
+                                                   LocalDateTime dataHora, String tokenCancelamento,
+                                                   String telefone) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        String dataFormatada = dataHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm:ss"));
+        String urlCancelamento = config.getFrontendBaseUrl() + "/recuperar-senha/cancelar?t=" + tokenCancelamento;
+        String linhaLocalizacao = construirLinhaLocalizacao(ip);
+
+        String corpo = """
+                <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
+                <p style="margin:0 0 20px;">Detectamos uma solicitação de recuperação de senha para a sua conta via WhatsApp/SMS (<strong>%s</strong>). Confira os detalhes abaixo:</p>
+                <div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:8px;padding:16px 20px;margin:0 0 20px;">
+                  <table style="width:100%%;border-collapse:collapse;">
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Endereço IP</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;font-family:monospace;">%s</td>
+                    </tr>
+                    %s
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;">Data e horário</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">%s</td>
+                    </tr>
+                  </table>
+                </div>
+                <p style="margin:0;color:#6c757d;font-size:13px;">Se não foi você, use o botão abaixo para cancelar imediatamente e invalidar o código enviado.</p>
+                """.formatted(nome, telefone, ip, linhaLocalizacao, dataFormatada);
+
+        String html = construirHtml(
+                "Alerta de recuperação de senha",
+                "Solicitação via WhatsApp/SMS",
+                corpo,
+                "Cancelar recuperação de senha",
+                urlCancelamento
+        );
+
+        enviar(config, email, "Alerta: recuperação de senha solicitada - AuthLuiz", html);
+    }
+
+    @Async
+    public void enviarNotificacaoVinculacaoGoogle(String nome, String email, String ip, LocalDateTime dataHora) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        String dataFormatada = dataHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm:ss"));
+        String linhaLocalizacao = construirLinhaLocalizacao(ip);
+
+        String corpo = """
+                <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
+                <p style="margin:0 0 20px;">Uma conta Google foi vinculada à sua conta com sucesso. Confira abaixo os detalhes da ação:</p>
+                <div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:8px;padding:16px 20px;margin:0 0 20px;">
+                  <table style="width:100%%;border-collapse:collapse;">
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Endereço IP</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;font-family:monospace;">%s</td>
+                    </tr>
+                    %s
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;">Data e horário</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">%s</td>
+                    </tr>
+                  </table>
+                </div>
+                <p style="margin:0;color:#6c757d;font-size:13px;">Se você não realizou esta ação, recomendamos que acesse sua conta imediatamente e altere suas credenciais.</p>
+                """.formatted(nome, ip, linhaLocalizacao, dataFormatada);
+
+        String html = construirHtml(
+                "Conta Google vinculada",
+                "Vinculação com Google realizada",
+                corpo,
+                null,
+                null
+        );
+
+        enviar(config, email, "Conta Google vinculada - AuthLuiz", html);
+    }
+
+    @Async
+    public void enviarNotificacaoAlteracaoTelefone(String nome, String email, String novoTelefone,
+                                                    String ip, LocalDateTime dataHora) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        String dataFormatada = dataHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm:ss"));
+        String linhaLocalizacao = construirLinhaLocalizacao(ip);
+
+        String corpo = """
+                <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
+                <p style="margin:0 0 20px;">O número de telefone da sua conta foi alterado para <strong>%s</strong> com sucesso. Confira abaixo os detalhes da ação:</p>
+                <div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:8px;padding:16px 20px;margin:0 0 20px;">
+                  <table style="width:100%%;border-collapse:collapse;">
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Endereço IP</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;font-family:monospace;">%s</td>
+                    </tr>
+                    %s
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;">Data e horário</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">%s</td>
+                    </tr>
+                  </table>
+                </div>
+                <p style="margin:0;color:#6c757d;font-size:13px;">Se você não realizou esta ação, recomendamos que acesse sua conta imediatamente e altere suas credenciais.</p>
+                """.formatted(nome, novoTelefone, ip, linhaLocalizacao, dataFormatada);
+
+        String html = construirHtml(
+                "Telefone alterado",
+                "Seu número de telefone foi atualizado",
+                corpo,
+                null,
+                null
+        );
+
+        enviar(config, email, "Seu telefone foi alterado - AuthLuiz", html);
+    }
+
+    @Async
+    public void enviarNotificacaoAlteracaoSenha(String nome, String email, String ip, LocalDateTime dataHora) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        String dataFormatada = dataHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm:ss"));
+        String linhaLocalizacao = construirLinhaLocalizacao(ip);
+
+        String corpo = """
+                <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
+                <p style="margin:0 0 20px;">Sua senha foi alterada com sucesso. Confira abaixo os detalhes da ação:</p>
+                <div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:8px;padding:16px 20px;margin:0 0 20px;">
+                  <table style="width:100%%;border-collapse:collapse;">
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Endereço IP</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;font-family:monospace;">%s</td>
+                    </tr>
+                    %s
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;">Data e horário</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">%s</td>
+                    </tr>
+                  </table>
+                </div>
+                <p style="margin:0;color:#6c757d;font-size:13px;">Se você não realizou esta ação, recomendamos que acesse sua conta imediatamente e utilize a recuperação de senha.</p>
+                """.formatted(nome, ip, linhaLocalizacao, dataFormatada);
+
+        String html = construirHtml(
+                "Senha alterada",
+                "Sua senha foi alterada",
+                corpo,
+                null,
+                null
+        );
+
+        enviar(config, email, "Sua senha foi alterada - AuthLuiz", html);
+    }
+
+    @Async
+    public void enviarNotificacaoRedefinicaoSenha(String nome, String email, String ip, LocalDateTime dataHora) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        String dataFormatada = dataHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm:ss"));
+        String linhaLocalizacao = construirLinhaLocalizacao(ip);
+
+        String corpo = """
+                <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
+                <p style="margin:0 0 20px;">Sua senha foi redefinida com sucesso. Confira abaixo os detalhes da ação:</p>
+                <div style="background:#fff8e1;border-left:4px solid #f59e0b;border-radius:8px;padding:16px 20px;margin:0 0 20px;">
+                  <table style="width:100%%;border-collapse:collapse;">
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Endereço IP</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;font-family:monospace;">%s</td>
+                    </tr>
+                    %s
+                    <tr>
+                      <td style="padding:5px 0;color:#6c757d;font-size:13px;">Data e horário</td>
+                      <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">%s</td>
+                    </tr>
+                  </table>
+                </div>
+                <p style="margin:0;color:#6c757d;font-size:13px;">Se você não realizou esta ação, recomendamos que acesse sua conta imediatamente e altere sua senha.</p>
+                """.formatted(nome, ip, linhaLocalizacao, dataFormatada);
+
+        String html = construirHtml(
+                "Senha redefinida",
+                "Sua senha foi alterada",
+                corpo,
+                null,
+                null
+        );
+
+        enviar(config, email, "Sua senha foi redefinida - AuthLuiz", html);
+    }
+
+    private String construirLinhaLocalizacao(String ip) {
+        return ipGeolocalizacaoService.obterLocalizacao(ip)
+                .map(loc -> """
+                        <tr>
+                          <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Localização</td>
+                          <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">%s</td>
+                        </tr>
+                        """.formatted(loc))
+                .orElse("");
     }
 
     private String construirHtml(String titulo, String subtitulo, String corpoHtml,

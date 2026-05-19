@@ -46,6 +46,9 @@ public class TokenRecuperacaoSenha {
     @Column(name = "tentativasErradas", nullable = false)
     private int tentativasErradas = 0;
 
+    @Column(name = "tokenCancelamento", length = 36)
+    private String tokenCancelamento;
+
     @CreationTimestamp
     @Column(name = "dataCriacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;

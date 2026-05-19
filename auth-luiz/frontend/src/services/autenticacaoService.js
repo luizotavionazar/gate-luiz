@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined
+  ? import.meta.env.VITE_API_BASE_URL
+  : 'http://localhost:8080'
 const PERM_LUIZ_API_URL = import.meta.env.VITE_PERM_LUIZ_API_URL || 'http://localhost:8081'
 
 const authApi = axios.create({
@@ -240,5 +242,10 @@ export async function iniciarRecuperacaoSenha(dados) {
 
 export async function redefinirSenha(dados) {
   const response = await authApi.post('/auth/recuperacao/redefinir', dados)
+  return response.data
+}
+
+export async function cancelarRecuperacaoSenha(tokenCancelamento) {
+  const response = await authApi.post('/auth/recuperacao/cancelar', { tokenCancelamento })
   return response.data
 }

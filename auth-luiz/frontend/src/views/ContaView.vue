@@ -160,7 +160,7 @@
                 <form @submit.prevent="salvarTelefone">
                   <div class="mb-3">
                     <label class="form-label">Telefone</label>
-                    <input v-model="formTelefone.telefone" type="tel" class="form-control" placeholder="+5511987654321" />
+                    <TelefoneInput v-model="formTelefone.telefone" />
                     <div v-if="conta.telefonePendente" class="form-text text-warning-emphasis">
                       <i class="bi bi-clock me-1"></i>Aguardando confirmação.
                     </div>
@@ -422,6 +422,7 @@ import {
 } from '../services/autenticacaoService'
 import { getGoogleClientId, renderizarBotaoGoogle } from '../services/googleIdentityService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
+import TelefoneInput from '../components/TelefoneInput.vue'
 
 const router = useRouter()
 const conta = ref(null)

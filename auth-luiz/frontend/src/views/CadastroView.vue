@@ -23,10 +23,7 @@
               <label for="telefone" class="form-label">
                 Telefone
               </label>
-              <input id="telefone" v-model="form.telefone" type="tel" class="form-control" placeholder="+5511987654321" />
-              <div v-if="form.telefone.length > 0" class="small mt-1" :class="telefoneValido ? 'text-success' : 'text-danger'">
-                {{ telefoneValido ? '✓ Formato válido' : '✕ Use o formato internacional (ex: +5511987654321)' }}
-              </div>
+              <TelefoneInput v-model="form.telefone" />
             </div>
 
             <div class="col-md-6 mb-3">
@@ -82,6 +79,7 @@ import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { cadastrar } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
+import TelefoneInput from '../components/TelefoneInput.vue'
 
 const router = useRouter()
 const form = reactive({ nome: '', email: '', senha: '', confSenha: '', telefone: '' })
@@ -102,7 +100,6 @@ const senhaRegras = computed(() => ({
 
 const senhaValida = computed(() => Object.values(senhaRegras.value).every(Boolean))
 const senhasCoincidem = computed(() => form.confSenha.length > 0 && form.senha === form.confSenha)
-const telefoneValido = computed(() => /^\+[1-9]\d{7,14}$/.test(form.telefone.trim()))
 const mostrarRegrasSenha = computed(() => senhaEmFoco.value || form.senha.length > 0)
 const mostrarValidacaoConfirmacao = computed(() => confirmacaoEmFoco.value || form.confSenha.length > 0)
 
@@ -120,11 +117,7 @@ async function enviarCadastro() {
     return
   }
 
-  const telefone = form.telefone.trim() || null
-  if (telefone && !telefoneValido.value) {
-    erro.value = 'O telefone informado é inválido. Use o formato internacional (ex: +5511987654321).'
-    return
-  }
+  const telefone = form.telefone || null
 
   carregando.value = true
 

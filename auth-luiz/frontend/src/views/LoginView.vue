@@ -16,13 +16,46 @@
 
         <div class="position-relative text-center my-4">
           <hr class="my-0" />
-          <span class="badge text-bg-light border position-absolute top-50 start-50 translate-middle px-3 py-2">ou entre com e-mail ou telefone</span>
+          <span class="badge text-bg-light border position-absolute top-50 start-50 translate-middle px-3 py-2">ou entre com</span>
+        </div>
+
+        <div class="d-flex gap-2 mb-3">
+          <button
+            type="button"
+            class="btn flex-fill"
+            :class="canal === 'email' ? 'btn-primary' : 'btn-outline-secondary'"
+            @click="selecionarCanal('email')"
+          >
+            <i class="bi bi-envelope me-2"></i>E-mail
+          </button>
+          <button
+            type="button"
+            class="btn flex-fill"
+            :class="canal === 'telefone' ? 'btn-primary' : 'btn-outline-secondary'"
+            @click="selecionarCanal('telefone')"
+          >
+            <i class="bi bi-phone me-2"></i>Telefone
+          </button>
         </div>
 
         <form @submit.prevent="fazerLogin">
           <div class="mb-3">
-            <label for="identificador" class="form-label">E-mail ou telefone</label>
-            <input id="identificador" v-model="identificador" type="text" class="form-control" placeholder="seuemail@exemplo.com ou +5511987654321" required />
+            <label :for="canal" class="form-label">{{ canal === 'email' ? 'E-mail' : 'Telefone' }}</label>
+            <input
+              v-if="canal === 'email'"
+              id="email"
+              v-model="identificador"
+              type="email"
+              class="form-control"
+              placeholder="seuemail@exemplo.com"
+              autocomplete="email"
+              required
+            />
+            <TelefoneInput
+              v-else
+              v-model="identificador"
+              required
+            />
           </div>
 
           <div class="mb-3">
@@ -62,8 +95,10 @@ import { useRouter } from 'vue-router'
 import { login, loginComGoogle, salvarSessao } from '../services/autenticacaoService'
 import { cancelarOneTap, exibirOneTap, getGoogleClientId, renderizarBotaoGoogle } from '../services/googleIdentityService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
+import TelefoneInput from '../components/TelefoneInput.vue'
 
 const router = useRouter()
+const canal = ref('email')
 const identificador = ref('')
 const senha = ref('')
 const mensagem = ref('')
@@ -74,6 +109,12 @@ const mostrarSenha = ref(false)
 const googleButtonRef = ref(null)
 const googleIndisponivel = ref('')
 
+function selecionarCanal(novoCanal) {
+  canal.value = novoCanal
+  identificador.value = ''
+  mensagem.value = ''
+}
+
 function redirecionarConta() {
   router.push('/conta')
 }
@@ -83,7 +124,9 @@ async function fazerLogin() {
   googleMensagem.value = ''
 
   if (!identificador.value || !senha.value) {
-    mensagem.value = 'Preencha e-mail ou telefone e senha.'
+    mensagem.value = canal.value === 'email'
+      ? 'Preencha o e-mail e a senha.'
+      : 'Preencha o telefone e a senha.'
     return
   }
 

@@ -1,5 +1,7 @@
 package br.com.luizotavionazar.authluiz.api.autenticacao.controller;
 
+import br.com.luizotavionazar.authluiz.api.common.IpUtils;
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CancelarRecuperacaoRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginRequest;
@@ -58,8 +60,18 @@ public class AutenticacaoController {
 
     @Auditavel(acao = AcaoAuditoria.RECUPERACAO_SENHA_REDEFINIDA, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/recuperacao/redefinir")
-    public ResponseEntity<MensagemResponse> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request) {
-        return ResponseEntity.ok(autenticacaoService.redefinirSenha(request));
+    public ResponseEntity<MensagemResponse> redefinirSenha(
+            @Valid @RequestBody RedefinirSenhaRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return ResponseEntity.ok(autenticacaoService.redefinirSenha(request, extrairIp(httpRequest)));
+    }
+
+    @PostMapping("/recuperacao/cancelar")
+    public ResponseEntity<MensagemResponse> cancelarTokenRecuperacao(
+            @Valid @RequestBody CancelarRecuperacaoRequest request
+    ) {
+        return ResponseEntity.ok(autenticacaoService.cancelarTokenRecuperacao(request.tokenCancelamento()));
     }
 
     @Auditavel(acao = AcaoAuditoria.LOGOUT, categoria = CategoriaAuditoria.SEGURANCA)
@@ -70,6 +82,6 @@ public class AutenticacaoController {
     }
 
     private String extrairIp(HttpServletRequest request) {
-        return request.getRemoteAddr();
+        return IpUtils.extrairIp(request);
     }
 }

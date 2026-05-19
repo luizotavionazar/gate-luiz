@@ -193,7 +193,7 @@ public class ContaService {
     }
 
     @Transactional
-    public MensagemResponse atualizarSenha(String publicId, AtualizarSenhaRequest request) {
+    public MensagemResponse atualizarSenha(String publicId, AtualizarSenhaRequest request, String ip) {
         Usuario usuario = buscarUsuario(publicId);
 
         if (!usuario.isEmailVerificado()) {
@@ -202,6 +202,8 @@ public class ContaService {
         }
 
         politicaSenhaService.validar(request.novaSenha());
+
+        LocalDateTime agora = LocalDateTime.now();
 
         if (usuario.possuiSenha()) {
             String senhaAtual = request.senhaAtual();
@@ -220,14 +222,16 @@ public class ContaService {
 
             usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
             usuarioRepository.save(usuario);
-            tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), LocalDateTime.now());
+            tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), agora);
+            emailService.enviarNotificacaoAlteracaoSenha(usuario.getNome(), usuario.getEmail(), ip, agora);
             AuditoriaService.definirDetalhes("Senha alterada");
             return new MensagemResponse("Senha alterada com sucesso!");
         }
 
         usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
         usuarioRepository.save(usuario);
-        tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), LocalDateTime.now());
+        tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), agora);
+        emailService.enviarNotificacaoAlteracaoSenha(usuario.getNome(), usuario.getEmail(), ip, agora);
         AuditoriaService.definirDetalhes("Senha definida pela primeira vez");
         return new MensagemResponse("Senha definida com sucesso!");
     }

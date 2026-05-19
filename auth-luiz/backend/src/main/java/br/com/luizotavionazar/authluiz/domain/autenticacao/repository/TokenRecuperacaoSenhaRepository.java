@@ -13,6 +13,8 @@ public interface TokenRecuperacaoSenhaRepository extends JpaRepository<TokenRecu
 
     Optional<TokenRecuperacaoSenha> findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(Integer idUsuario);
 
+    Optional<TokenRecuperacaoSenha> findByTokenCancelamentoAndUsadoEmIsNullAndEncerradoEmIsNull(String tokenCancelamento);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update TokenRecuperacaoSenha t

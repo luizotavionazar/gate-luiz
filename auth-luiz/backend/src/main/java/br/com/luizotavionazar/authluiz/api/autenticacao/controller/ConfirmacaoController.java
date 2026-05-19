@@ -1,5 +1,6 @@
 package br.com.luizotavionazar.authluiz.api.autenticacao.controller;
 
+import br.com.luizotavionazar.authluiz.api.common.IpUtils;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ConfirmarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
@@ -40,7 +41,7 @@ public class ConfirmacaoController {
             HttpServletRequest httpRequest
     ) {
         String publicId = jwt.getSubject();
-        String ip = httpRequest.getRemoteAddr();
+        String ip = IpUtils.extrairIp(httpRequest);
         return ResponseEntity.ok(confirmacaoService.enviarVerificacaoEmail(publicId, ip));
     }
 
@@ -63,7 +64,7 @@ public class ConfirmacaoController {
             HttpServletRequest httpRequest
     ) {
         String publicId = jwt.getSubject();
-        String ip = httpRequest.getRemoteAddr();
+        String ip = IpUtils.extrairIp(httpRequest);
         return ResponseEntity.ok(confirmacaoService.enviarVerificacaoTelefone(publicId, ip));
     }
 }

@@ -1,5 +1,6 @@
 package br.com.luizotavionazar.authluiz.api.conta.controller;
 
+import br.com.luizotavionazar.authluiz.api.common.IpUtils;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
@@ -64,17 +65,18 @@ public class ContaController {
             HttpServletRequest httpRequest
     ) {
         String publicId = jwt.getSubject();
-        return ResponseEntity.ok(contaService.atualizarEmail(publicId, request, httpRequest.getRemoteAddr()));
+        return ResponseEntity.ok(contaService.atualizarEmail(publicId, request, IpUtils.extrairIp(httpRequest)));
     }
 
     @Auditavel(acao = AcaoAuditoria.ALTERAR_SENHA, categoria = CategoriaAuditoria.SEGURANCA)
     @PatchMapping("/senha")
     public ResponseEntity<MensagemResponse> atualizarSenha(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody AtualizarSenhaRequest request
+            @Valid @RequestBody AtualizarSenhaRequest request,
+            HttpServletRequest httpRequest
     ) {
         String publicId = jwt.getSubject();
-        return ResponseEntity.ok(contaService.atualizarSenha(publicId, request));
+        return ResponseEntity.ok(contaService.atualizarSenha(publicId, request, IpUtils.extrairIp(httpRequest)));
     }
 
     @Auditavel(acao = AcaoAuditoria.ALTERAR_TELEFONE)
@@ -85,7 +87,7 @@ public class ContaController {
             HttpServletRequest httpRequest
     ) {
         String publicId = jwt.getSubject();
-        return ResponseEntity.ok(contaService.atualizarTelefone(publicId, request, httpRequest.getRemoteAddr()));
+        return ResponseEntity.ok(contaService.atualizarTelefone(publicId, request, IpUtils.extrairIp(httpRequest)));
     }
 
     @Auditavel(acao = AcaoAuditoria.CONTA_DELETADA, categoria = CategoriaAuditoria.SEGURANCA)

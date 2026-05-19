@@ -1,5 +1,6 @@
 package br.com.luizotavionazar.authluiz.api.oauth.controller;
 
+import br.com.luizotavionazar.authluiz.api.common.IpUtils;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
 import br.com.luizotavionazar.authluiz.api.oauth.dto.DesvincularGoogleRequest;
@@ -8,6 +9,7 @@ import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.service.GoogleAuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -36,10 +38,11 @@ public class OAuthController {
     @PostMapping("/google/vincular")
     public ResponseEntity<ContaResponse> vincularGoogle(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody GoogleLoginRequest request
+            @Valid @RequestBody GoogleLoginRequest request,
+            HttpServletRequest httpRequest
     ) {
         String publicId = jwt.getSubject();
-        return ResponseEntity.ok(googleAuthService.vincular(publicId, request));
+        return ResponseEntity.ok(googleAuthService.vincular(publicId, request, IpUtils.extrairIp(httpRequest)));
     }
 
     @Auditavel(acao = AcaoAuditoria.DESVINCULAR_GOOGLE)

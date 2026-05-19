@@ -4,7 +4,10 @@
       <div class="card-body p-4 p-md-5">
         <i class="bi bi-key text-primary d-block text-center" style="font-size: 2.5rem;"></i>
         <h1 class="h4 fw-bold text-center mt-2 mb-1">Redefinir senha</h1>
-        <p class="text-muted text-center mb-4">Digite o código de 6 dígitos enviado para o seu e-mail e escolha uma nova senha.</p>
+        <p class="text-muted text-center mb-4">
+          Digite o código de 6 dígitos enviado para o seu
+          {{ canal === 'telefone' ? 'WhatsApp/SMS' : 'e-mail' }} e escolha uma nova senha.
+        </p>
 
         <template v-if="sucesso">
           <div class="alert alert-success text-center">
@@ -17,8 +20,24 @@
 
         <form v-else @submit.prevent="enviar">
           <div class="mb-3">
-            <label for="email" class="form-label">E-mail</label>
-            <input id="email" v-model="email" type="email" class="form-control" placeholder="seuemail@exemplo.com" required />
+            <label :for="canal" class="form-label">
+              {{ canal === 'telefone' ? 'Telefone' : 'E-mail' }}
+            </label>
+            <TelefoneInput
+              v-if="canal === 'telefone'"
+              v-model="identificador"
+              required
+            />
+            <input
+              v-else
+              id="email"
+              v-model="identificador"
+              type="email"
+              class="form-control"
+              placeholder="seuemail@exemplo.com"
+              autocomplete="email"
+              required
+            />
           </div>
 
           <div class="mb-3">
@@ -118,11 +137,13 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { redefinirSenha } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
+import TelefoneInput from '../components/TelefoneInput.vue'
 
 const route = useRoute()
 const router = useRouter()
 
-const email = ref('')
+const canal = ref('email')
+const identificador = ref('')
 const digitos = reactive(Array(6).fill(''))
 const inputs = ref([])
 const novaSenha = ref('')
@@ -191,8 +212,12 @@ async function enviar() {
   carregando.value = true
 
   try {
+    const identificadorPayload = canal.value === 'telefone'
+      ? { telefone: identificador.value }
+      : { email: identificador.value.trim() }
+
     await redefinirSenha({
-      email: email.value.trim(),
+      ...identificadorPayload,
       codigo: codigoCompleto.value,
       novaSenha: novaSenha.value
     })
@@ -207,6 +232,12 @@ async function enviar() {
 }
 
 onMounted(() => {
-  email.value = route.query.email || ''
+  if (route.query.telefone) {
+    canal.value = 'telefone'
+    identificador.value = route.query.telefone  // E.164 — TelefoneInput faz o parsing
+  } else {
+    canal.value = 'email'
+    identificador.value = route.query.email || ''
+  }
 })
 </script>

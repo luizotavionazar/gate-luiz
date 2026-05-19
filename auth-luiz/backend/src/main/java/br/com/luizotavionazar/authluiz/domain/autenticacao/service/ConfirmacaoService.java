@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+
 
 @Service
 @RequiredArgsConstructor
@@ -74,6 +76,9 @@ public class ConfirmacaoService {
             usuario.setTelefonePendente(null);
             usuario.setTelefoneVerificado(true);
             usuarioRepository.save(usuario);
+            emailService.enviarNotificacaoAlteracaoTelefone(
+                    usuario.getNome(), usuario.getEmail(), novoTelefone,
+                    token.getIpSolicitacao(), LocalDateTime.now());
             AuditoriaService.definirDetalhes("Telefone: " + novoTelefone);
         }
 

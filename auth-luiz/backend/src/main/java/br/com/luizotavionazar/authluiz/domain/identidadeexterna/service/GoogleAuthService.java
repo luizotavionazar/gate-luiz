@@ -9,6 +9,7 @@ import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.IdentidadeExterna;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
+import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class GoogleAuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final GoogleIdTokenValidatorService googleIdTokenValidatorService;
+    private final EmailService emailService;
 
     @Transactional
     public LoginResponse autenticar(GoogleLoginRequest request) {
@@ -73,7 +75,7 @@ public class GoogleAuthService {
     }
 
     @Transactional
-    public ContaResponse vincular(String publicId, GoogleLoginRequest request) {
+    public ContaResponse vincular(String publicId, GoogleLoginRequest request, String ip) {
         Jwt googleJwt = googleIdTokenValidatorService.validar(request.idToken());
         GoogleUsuarioInfo googleUsuario = extrairUsuario(googleJwt);
 
@@ -103,6 +105,7 @@ public class GoogleAuthService {
         }
 
         criarVinculoGoogle(usuario, googleUsuario);
+        emailService.enviarNotificacaoVinculacaoGoogle(usuario.getNome(), usuario.getEmail(), ip, LocalDateTime.now());
         return ContaResponse.from(usuario, true);
     }
 

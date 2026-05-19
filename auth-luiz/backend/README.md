@@ -33,7 +33,8 @@ src/main/java/.../authluiz/
 │   │                                    ConfirmarEmailRequest, ContaResponse, MensagemResponse
 │   ├── common/
 │   │   ├── exception/  ExcecaoLimiteTentativas
-│   │   └── handler/    ApiExceptionHandler  — trata ResponseStatusException globalmente
+│   │   ├── handler/    ApiExceptionHandler  — trata ResponseStatusException globalmente
+│   │   └── IpUtils     Utilitário estático extrairIp(HttpServletRequest): X-Real-IP → X-Forwarded-For → getRemoteAddr()
 │   ├── conta/
 │   │   ├── controller/ ContaController      GET/PATCH /auth/me, DELETE /auth/me
 │   │   └── dto/        AtualizarNomeRequest, AtualizarEmailRequest,
@@ -77,8 +78,8 @@ src/main/java/.../authluiz/
 │   │
 │   ├── autenticacao/
 │   │   ├── entity/
-│   │   │   ├── TokenRecuperacaoSenha    Token hasheado (SHA-256) para redefinição de senha
-│   │   │   ├── ControleEnvioCodigoIp    Rate limiting por IP para qualquer envio de código (e-mail ou futuro SMS/WhatsApp)
+│   │   │   ├── TokenRecuperacaoSenha    Token de redefinição de senha (código 6 dígitos + tokenCancelamento UUID)
+│   │   │   ├── ControleEnvioCodigoIp    Rate limiting por IP para qualquer envio de código (e-mail ou SMS/WhatsApp)
 │   │   │   ├── TokenConfirmacao         Token hasheado para verificação de cadastro e alteração de e-mail
 │   │   │   ├── TipoTokenConfirmacao     Enum: VERIFICACAO_CADASTRO | ALTERACAO_EMAIL | ALTERACAO_TELEFONE
 │   │   │   ├── ControleAlteracaoEmail   Rate limiting de alteração de e-mail por usuário
@@ -91,7 +92,7 @@ src/main/java/.../authluiz/
 │   │   │   ├── ConfirmacaoService       Confirmação e reenvio de e-mail de verificação
 │   │   │   ├── TokenConfirmacaoService  Criação, validação e encerramento de tokens de confirmação
 │   │   │   ├── TokenRecuperacaoSenhaService  Fluxo de recuperação de senha
-│   │   │   ├── EnvioCodigoRateLimitService  Rate limiting por IP para todos os envios de código (e-mail e futuro SMS/WhatsApp)
+│   │   │   ├── EnvioCodigoRateLimitService  Rate limiting por IP para todos os envios de código (e-mail e SMS/WhatsApp)
 │   │   │   ├── PoliticaSenhaService     Validação de força de senha
 │   │   │   ├── ConfirmacaoEmailExpiracaoService  @Scheduled — remove contas não confirmadas após 7 dias
 │   │   │   └── TokenRecuperacaoSenhaExpiracaoService  @Scheduled — limpa tokens expirados
@@ -119,6 +120,7 @@ src/main/java/.../authluiz/
 │   │   │   └── NotificacaoTelefonePort  Interface: validarDisponibilidade() (síncrono, 503 se sem credenciais) + enviarCodigoVerificacao() (@Async)
 │   │   └── service/
 │   │       ├── EmailService             Envio de e-mails transacionais HTML via JavaMail (todos os métodos são @Async)
+│   │       ├── IpGeolocalizacaoService  Geolocalização de IP via ip-api.com — retorna Optional<String> com "Cidade, Estado, País"
 │   │       └── TwilioAdapter            Implementação @Primary de NotificacaoTelefonePort via Twilio SDK (WhatsApp ou SMS)
 │   │
 │   └── usuario/
@@ -146,6 +148,8 @@ src/main/java/.../authluiz/
 | `V8__renomear_controle_recuperacao_senha.sql` | Renomeia tabela `controleRecuperacaoSenha` → `controleEnvioCodigoIp` (rate limiting agora é agnóstico ao canal) |
 | `V9__telefone_pendente_usuario.sql`           | Adiciona coluna `telefonePendente` (VARCHAR 20, nullable) à tabela `usuario` |
 | `V10__token_confirmacao_telefone_destino.sql` | Adiciona coluna `telefoneDestino` (VARCHAR 20, nullable) à tabela `tokenConfirmacao` |
+| `V11`–`V18` | Configuração Twilio, auditoria configurável, renomeações de colunas, token blacklist, `publicId` na tabela `usuario` |
+| `V19__token_cancelamento_recuperacao_senha.sql` | Adiciona coluna `tokenCancelamento` (VARCHAR 36, nullable) à tabela `tokenRecuperacaoSenha` — UUID gerado para tokens criados pelo canal telefone, usado para cancelamento via e-mail |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -174,6 +178,53 @@ TWILIO_CANAL=whatsapp             # Canal: "whatsapp" ou "sms" (padrão: whatsap
 > Se as variáveis Twilio não estiverem configuradas, endpoints que iniciam ou reenviam código por telefone retornam HTTP 503. Nenhum estado é persistido nesse caso.
 
 > Gere o par de chaves RSA executando `GerarChavesRSA.java` (disponível na raiz do backend). Consulte `backend/.env.example` para o procedimento completo.
+
+## Geolocalização por IP
+
+Dois e-mails de segurança exibem uma linha de **localização aproximada** (cidade, estado, país) baseada no IP do solicitante: o alerta de recuperação via telefone e a confirmação de redefinição de senha.
+
+### Como funciona
+
+1. `IpUtils.extrairIp(HttpServletRequest)` resolve o IP real do cliente na seguinte ordem de prioridade:
+   - Header `X-Real-IP` (definido pelo nginx em produção Docker)
+   - Primeiro elemento de `X-Forwarded-For` (proxies em geral)
+   - `request.getRemoteAddr()` (fallback — IP direto da conexão TCP)
+
+2. `IpGeolocalizacaoService.obterLocalizacao(ip)` recebe o IP e retorna `Optional<String>`:
+   - Se o IP for **privado ou loopback** (127.0.0.1, ::1, 10.x, 172.16–31.x, 192.168.x) → retorna `empty()` imediatamente, sem chamada de rede.
+   - Caso contrário, chama `http://ip-api.com/json/{ip}?fields=status,city,regionName,country&lang=pt-BR` com timeout de 3 s em conexão e leitura.
+   - Se a API retornar `"status":"success"` → monta a string `"Cidade, Estado, País"` com os campos disponíveis.
+   - Se a chamada falhar (timeout, erro de rede, status ≠ success) → loga `WARN` e retorna `empty()`.
+
+3. O `EmailService` monta a linha de localização via `construirLinhaLocalizacao(ip)`: se `obterLocalizacao` retornar valor, insere uma `<tr>` na tabela de detalhes do e-mail; se retornar vazio, a string é `""` e o e-mail é enviado sem essa linha.
+
+### Dependência externa
+
+| API | `ip-api.com` |
+|-----|-------------|
+| Plano | Gratuito (sem autenticação) |
+| Protocolo | HTTP (HTTPS exige plano pago — aceitável para lookup de cidade/país no lado servidor) |
+| Limite | 45 requisições/minuto por IP de saída |
+| Fallback | Sim — falhas não interrompem o envio do e-mail |
+
+> Não há nenhuma credencial para configurar. O serviço funciona out-of-the-box em qualquer ambiente com acesso à internet de saída.
+
+### Comportamento por ambiente
+
+| Ambiente | IP visto pelo backend | Geo |
+|----------|----------------------|-----|
+| Dev local (`./mvnw spring-boot:run`) | `127.0.0.1` | ✗ privado, linha omitida |
+| Docker Compose sem proxy | `172.17.0.1` (bridge Docker) | ✗ privado, linha omitida |
+| Docker Compose com nginx proxy (`compose.yaml`) | IP real do cliente (via `X-Real-IP`) | ✓ funciona |
+| Produção com proxy reverso próprio | IP real (via `X-Real-IP` ou `X-Forwarded-For`) | ✓ funciona |
+
+### Adicionando geo a novos e-mails
+
+Para incluir localização em um futuro e-mail de segurança:
+1. Injete `IpGeolocalizacaoService` no `EmailService` (já injetado via `@RequiredArgsConstructor`).
+2. Chame `construirLinhaLocalizacao(ip)` (método privado no `EmailService`) — retorna a `<tr>` HTML ou string vazia.
+3. Passe o resultado como `%s` na posição desejada do template de tabela.
+4. Certifique-se de que o IP chegou via `IpUtils.extrairIp()` no controller.
 
 ## Rodando
 
@@ -266,21 +317,41 @@ Desvincula o Google da conta. Exige senha definida (para não perder o acesso) e
 
 **`POST /auth/recuperacao/iniciar`** — Pública
 
-Envia um código numérico de 6 dígitos por e-mail para iniciar a recuperação. Rate limiting por IP.
+Envia um código numérico de 6 dígitos para iniciar a recuperação. Informe `email` **ou** `telefone` (exatamente um dos dois). Rate limiting por IP. Para o canal de telefone, exige `telefoneVerificado = true` e credenciais Twilio configuradas (retorna `503` caso contrário).
 
 ```json
 { "email": "joao@email.com" }
+```
+
+```json
+{ "telefone": "+5511999999999" }
 ```
 
 ---
 
 **`POST /auth/recuperacao/redefinir`** — Pública
 
-Redefine a senha usando o código recebido por e-mail. O código expira em 5 minutos e bloqueia após 5 tentativas erradas.
+Redefine a senha usando o código recebido. Informe o mesmo identificador (`email` ou `telefone`) usado na etapa anterior. O código expira em 5 minutos e bloqueia após 5 tentativas erradas. Após redefinição bem-sucedida, um e-mail de confirmação é sempre enviado ao endereço cadastrado.
 
 ```json
 { "email": "joao@email.com", "codigo": "123456", "novaSenha": "@NovaSenha123" }
 ```
+
+```json
+{ "telefone": "+5511999999999", "codigo": "123456", "novaSenha": "@NovaSenha123" }
+```
+
+---
+
+**`POST /auth/recuperacao/cancelar`** — Pública
+
+Cancela (invalida) um token de recuperação de senha antes que ele seja usado. O `tokenCancelamento` é um UUID único gerado quando a recuperação é iniciada pelo canal telefone. Esse UUID chega ao usuário como link no e-mail de alerta enviado paralelamente ao código WhatsApp/SMS (`/recuperar-senha/cancelar?t=<uuid>`).
+
+```json
+{ "tokenCancelamento": "550e8400-e29b-41d4-a716-446655440000" }
+```
+
+Resposta: `{ "mensagem": "Recuperação de senha cancelada com sucesso." }`
 
 ---
 

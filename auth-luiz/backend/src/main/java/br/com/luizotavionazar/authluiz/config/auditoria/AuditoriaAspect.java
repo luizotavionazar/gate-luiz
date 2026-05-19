@@ -1,5 +1,6 @@
 package br.com.luizotavionazar.authluiz.config.auditoria;
 
+import br.com.luizotavionazar.authluiz.api.common.IpUtils;
 import br.com.luizotavionazar.authluiz.domain.auditoria.entity.LogAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
@@ -39,7 +40,7 @@ public class AuditoriaAspect {
         }
 
         HttpServletRequest req = extrairRequest();
-        String ip = req != null ? req.getRemoteAddr() : null;
+        String ip = req != null ? IpUtils.extrairIp(req) : null;
         String uri = req != null ? req.getRequestURI() : null;
         String metodo = req != null ? req.getMethod() : null;
 
