@@ -70,6 +70,7 @@ public class GoogleAuthService {
                 .build());
 
         criarVinculoGoogle(novoUsuario, googleUsuario);
+        emailService.enviarBoasVindas(novoUsuario.getNome(), novoUsuario.getEmail());
         AuditoriaService.definirDetalhes("E-mail: " + googleUsuario.emailNormalizado());
         return gerarRespostaLogin(novoUsuario);
     }
