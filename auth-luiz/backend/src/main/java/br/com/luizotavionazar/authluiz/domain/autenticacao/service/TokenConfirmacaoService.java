@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public class TokenConfirmacaoService {
 
     static final long EXPIRACAO_CODIGO_MINUTES = 5;
-    static final long COOLDOWN_REENVIO_MINUTES = 2;
+    static final long COOLDOWN_REENVIO_MINUTES = 1;
     static final int MAX_TENTATIVAS_ERRADAS = 5;
 
     private final TokenConfirmacaoRepository tokenConfirmacaoRepository;

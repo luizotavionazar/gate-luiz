@@ -29,8 +29,8 @@ src/
     ├── CadastroView.vue               Cadastro com e-mail e senha
     ├── ContaView.vue                  Gerenciamento da conta autenticada
     ├── RecuperarSenhaView.vue         Solicitação de recuperação de senha (e-mail ou telefone)
-    ├── RedefinirSenhaView.vue         Redefinição de senha via código de 6 dígitos (identificador pré-preenchido via query param)
-    ├── CancelarRecuperacaoView.vue    Cancela token de recuperação ao abrir link do e-mail de alerta (/recuperar-senha/cancelar?t=<uuid>)
+    ├── RedefinirSenhaView.vue         Verificação do código de recuperação — chama POST /auth/recuperacao/validar; passa estado via history.state para NovaSenhaView
+    ├── NovaSenhaView.vue              Definição da nova senha — lê estado de history.state; redireciona para /recuperar-senha se acessada diretamente
     ├── VerificacaoEmailView.vue       Confirmação de e-mail via código de 6 dígitos (cadastro e alteração)
     └── SetupView.vue                  Setup inicial da aplicação
 ```

@@ -25,7 +25,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -44,11 +43,9 @@ public class AutenticacaoService {
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final TokenRecuperacaoSenhaExpiracaoService tokenRecuperacaoSenhaExpiracaoService;
 
-    private static final long COOLDOWN_TOKEN_MINUTES = 2;
+    private static final long COOLDOWN_TOKEN_MINUTES = 1;
     private static final long EXPIRACAO_TOKEN_MINUTES = 5;
     private static final int MAX_TENTATIVAS_RECUPERACAO = 5;
-
-    static final String MSG_CREDENCIAIS_INVALIDAS = "E-mail/telefone ou senha incorretos!";
 
     @Transactional
     public CadastroResponse cadastrar(CadastroRequest request, String ip) {
@@ -75,18 +72,21 @@ public class AutenticacaoService {
     @Transactional
     public LoginResponse login(LoginRequest request) {
         String identificadorNormalizado = request.identificadorNormalizado();
+        String msgCredenciaisInvalidas = request.isEmail()
+                ? "E-mail ou senha incorretos!"
+                : "Telefone ou senha incorretos!";
 
         Usuario usuario = (request.isEmail()
                 ? usuarioRepository.findByEmail(identificadorNormalizado)
                 : usuarioRepository.findByTelefone(identificadorNormalizado))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, MSG_CREDENCIAIS_INVALIDAS));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, msgCredenciaisInvalidas));
 
         if (!usuario.possuiSenha()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, MSG_CREDENCIAIS_INVALIDAS);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, msgCredenciaisInvalidas);
         }
 
         if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, MSG_CREDENCIAIS_INVALIDAS);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, msgCredenciaisInvalidas);
         }
 
         usuarioRepository.atualizarUltimoLogin(usuario.getId(), LocalDateTime.now());
@@ -119,11 +119,16 @@ public class AutenticacaoService {
                 ? request.emailNormalizado()
                 : request.telefoneNormalizado();
 
+        boolean[] sugestaoLoginGoogle = {false};
+
         usuarioOpt.ifPresent(usuario -> {
             boolean contaGoogleOnly = !usuario.possuiSenha()
                     && identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                             ProviderExterno.GOOGLE);
-            if (contaGoogleOnly) return;
+            if (contaGoogleOnly) {
+                sugestaoLoginGoogle[0] = true;
+                return;
+            }
 
             if (!request.usarEmail() && !usuario.isTelefoneVerificado()) return;
 
@@ -153,14 +158,12 @@ public class AutenticacaoService {
             if (aindaExisteTokenAtivo) return;
 
             String codigoBruto = TokenUtils.gerarCodigoNumerico6Digitos();
-            String tokenCancelamento = request.usarEmail() ? null : UUID.randomUUID().toString();
 
             TokenRecuperacaoSenha token = TokenRecuperacaoSenha.builder()
                     .usuario(usuario)
                     .codigo(codigoBruto)
                     .expiraEm(agora.plusMinutes(EXPIRACAO_TOKEN_MINUTES))
                     .ipSolicitacao(ip)
-                    .tokenCancelamento(tokenCancelamento)
                     .build();
 
             tokenRecuperacaoSenhaRepository.save(token);
@@ -170,14 +173,53 @@ public class AutenticacaoService {
             } else {
                 notificacaoTelefonePort.enviarCodigoVerificacao(usuario.getTelefone(), codigoBruto);
                 emailService.enviarAvisoRecuperacaoViaTelefone(
-                        usuario.getNome(), usuario.getEmail(), ip, agora, tokenCancelamento,
-                        usuario.getTelefone());
+                        usuario.getNome(), usuario.getEmail(), ip, agora, usuario.getTelefone());
             }
         });
 
         String prefixo = request.usarEmail() ? "E-mail: " : "Telefone: ";
         AuditoriaService.definirDetalhes(prefixo + identificador);
-        return mensagemGenericaRecuperacao();
+        return mensagemGenericaRecuperacao(sugestaoLoginGoogle[0]);
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public MensagemResponse validarCodigoRecuperacao(ValidarCodigoRecuperacaoRequest request) {
+        Usuario usuario = (request.usarEmail()
+                ? usuarioRepository.findByEmail(request.emailNormalizado())
+                : usuarioRepository.findByTelefone(request.telefoneNormalizado()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Código de recuperação inválido ou expirado!"));
+
+        LocalDateTime agora = LocalDateTime.now();
+
+        TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository
+                .findFirstByUsuarioIdAndUsadoEmIsNullAndEncerradoEmIsNullOrderByDataCriacaoDesc(usuario.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Código de recuperação inválido ou expirado!"));
+
+        if (token.expirado()) {
+            tokenRecuperacaoSenhaExpiracaoService.encerrarSeExpirado(token);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Código de recuperação inválido ou expirado!");
+        }
+
+        if (!request.codigo().equals(token.getCodigo())) {
+            token.setTentativasErradas(token.getTentativasErradas() + 1);
+            if (token.getTentativasErradas() >= MAX_TENTATIVAS_RECUPERACAO) {
+                token.setEncerradoEm(agora);
+                tokenRecuperacaoSenhaRepository.saveAndFlush(token);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Código bloqueado após muitas tentativas incorretas. Solicite uma nova recuperação de senha.");
+            }
+            tokenRecuperacaoSenhaRepository.saveAndFlush(token);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Código de recuperação inválido!");
+        }
+
+        String prefixo = request.usarEmail() ? "E-mail: " : "Telefone: ";
+        AuditoriaService.definirDetalhes(prefixo +
+                (request.usarEmail() ? usuario.getEmail() : usuario.getTelefone()));
+        return new MensagemResponse("Código válido.");
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
@@ -235,20 +277,9 @@ public class AutenticacaoService {
         return new MensagemResponse("Senha redefinida com sucesso!");
     }
 
-    @Transactional
-    public MensagemResponse cancelarTokenRecuperacao(String tokenCancelamento) {
-        TokenRecuperacaoSenha token = tokenRecuperacaoSenhaRepository
-                .findByTokenCancelamentoAndUsadoEmIsNullAndEncerradoEmIsNull(tokenCancelamento)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Link de cancelamento inválido ou já utilizado."));
-
-        token.setEncerradoEm(LocalDateTime.now());
-        tokenRecuperacaoSenhaRepository.saveAndFlush(token);
-        return new MensagemResponse("Recuperação de senha cancelada com sucesso.");
-    }
-
-    private MensagemResponse mensagemGenericaRecuperacao() {
+    private MensagemResponse mensagemGenericaRecuperacao(boolean sugestaoLoginGoogle) {
         return new MensagemResponse(
-                "Enviaremos as instruções de recuperação caso exista uma conta vinculada a esse identificador!");
+                "Enviaremos as instruções de recuperação caso exista uma conta vinculada a esse identificador!",
+                sugestaoLoginGoogle);
     }
 }

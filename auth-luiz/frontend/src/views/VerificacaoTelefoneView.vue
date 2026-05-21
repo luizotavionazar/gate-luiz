@@ -43,9 +43,8 @@
           </form>
 
           <p class="text-muted small mb-0">
-            Não recebeu?
-            <button class="btn btn-link btn-sm p-0 text-decoration-none" :disabled="reenviando" @click="reenviar">
-              {{ reenviando ? 'Enviando...' : 'Reenviar código' }}
+            <button class="btn btn-link btn-sm p-0 text-decoration-none" :disabled="reenviando || cooldown > 0" @click="reenviar">
+              {{ reenviando ? 'Enviando...' : cooldown > 0 ? `Reenviar código (${cooldownFormatado})` : 'Reenviar código' }}
             </button>
           </p>
           <div v-if="mensagemReenvio" class="small mt-2 text-success-emphasis">{{ mensagemReenvio }}</div>
@@ -61,13 +60,22 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { buscarMinhaConta, confirmarTelefone, reenviarVerificacaoTelefone } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 
 const digitos = reactive(Array(6).fill(''))
 const inputs = ref([])
 const telefoneExibido = ref('')
+
+function iniciarCooldown() {
+  cooldown.value = 60
+  clearInterval(intervalo)
+  intervalo = setInterval(() => {
+    if (cooldown.value > 0) cooldown.value--
+    else clearInterval(intervalo)
+  }, 1000)
+}
 
 onMounted(async () => {
   try {
@@ -76,7 +84,10 @@ onMounted(async () => {
   } catch {
     // exibe sem número se falhar
   }
+  iniciarCooldown()
 })
+
+onUnmounted(() => clearInterval(intervalo))
 
 const sucesso = ref(false)
 const confirmando = ref(false)
@@ -84,8 +95,15 @@ const erro = ref('')
 const reenviando = ref(false)
 const mensagemReenvio = ref('')
 const erroReenvio = ref('')
+const cooldown = ref(0)
+let intervalo = null
 
 const codigoCompleto = computed(() => digitos.join(''))
+const cooldownFormatado = computed(() => {
+  const m = Math.floor(cooldown.value / 60)
+  const s = cooldown.value % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+})
 
 function aoDigitar(index, event) {
   const valor = event.target.value.replace(/\D/g, '')
@@ -121,7 +139,6 @@ async function confirmar() {
     sucesso.value = true
   } catch (e) {
     erro.value = extrairMensagemErro(e, 'Código inválido ou expirado. Tente novamente.')
-    digitos.fill('')
     inputs.value[0]?.focus()
   } finally {
     confirmando.value = false
@@ -135,6 +152,7 @@ async function reenviar() {
 
   try {
     await reenviarVerificacaoTelefone()
+    iniciarCooldown()
     mensagemReenvio.value = 'Novo código enviado com sucesso!'
   } catch (e) {
     erroReenvio.value = extrairMensagemErro(e, 'Não foi possível reenviar o código.')

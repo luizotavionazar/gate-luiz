@@ -46,6 +46,7 @@ public class SecurityConfig {
                                 "/auth/login",
                                 "/auth/oauth/google",
                                 "/auth/recuperacao/iniciar",
+                                "/auth/recuperacao/validar",
                                 "/auth/recuperacao/redefinir"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/recuperacao/validar").permitAll()

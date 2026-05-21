@@ -240,12 +240,12 @@ export async function iniciarRecuperacaoSenha(dados) {
   return response.data
 }
 
-export async function redefinirSenha(dados) {
-  const response = await authApi.post('/auth/recuperacao/redefinir', dados)
+export async function validarCodigoRecuperacao(dados) {
+  const response = await authApi.post('/auth/recuperacao/validar', dados)
   return response.data
 }
 
-export async function cancelarRecuperacaoSenha(tokenCancelamento) {
-  const response = await authApi.post('/auth/recuperacao/cancelar', { tokenCancelamento })
+export async function redefinirSenha(dados) {
+  const response = await authApi.post('/auth/recuperacao/redefinir', dados)
   return response.data
 }

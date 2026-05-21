@@ -1,7 +1,6 @@
 package br.com.luizotavionazar.authluiz.api.autenticacao.controller;
 
 import br.com.luizotavionazar.authluiz.api.common.IpUtils;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CancelarRecuperacaoRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginRequest;
@@ -9,6 +8,7 @@ import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.RecuperacaoSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.RedefinirSenhaRequest;
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ValidarCodigoRecuperacaoRequest;
 import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
@@ -58,6 +58,14 @@ public class AutenticacaoController {
         );
     }
 
+    @Auditavel(acao = AcaoAuditoria.RECUPERACAO_SENHA_CODIGO_VALIDADO, categoria = CategoriaAuditoria.SEGURANCA)
+    @PostMapping("/recuperacao/validar")
+    public ResponseEntity<MensagemResponse> validarCodigoRecuperacao(
+            @Valid @RequestBody ValidarCodigoRecuperacaoRequest request
+    ) {
+        return ResponseEntity.ok(autenticacaoService.validarCodigoRecuperacao(request));
+    }
+
     @Auditavel(acao = AcaoAuditoria.RECUPERACAO_SENHA_REDEFINIDA, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/recuperacao/redefinir")
     public ResponseEntity<MensagemResponse> redefinirSenha(
@@ -65,13 +73,6 @@ public class AutenticacaoController {
             HttpServletRequest httpRequest
     ) {
         return ResponseEntity.ok(autenticacaoService.redefinirSenha(request, extrairIp(httpRequest)));
-    }
-
-    @PostMapping("/recuperacao/cancelar")
-    public ResponseEntity<MensagemResponse> cancelarTokenRecuperacao(
-            @Valid @RequestBody CancelarRecuperacaoRequest request
-    ) {
-        return ResponseEntity.ok(autenticacaoService.cancelarTokenRecuperacao(request.tokenCancelamento()));
     }
 
     @Auditavel(acao = AcaoAuditoria.LOGOUT, categoria = CategoriaAuditoria.SEGURANCA)

@@ -48,8 +48,15 @@
 
           <div v-if="erro" class="alert alert-danger py-2 small">{{ erro }}</div>
 
+          <div v-if="sugestaoGoogle" class="alert alert-info small">
+            <i class="bi bi-google me-2"></i>
+            Esta conta usa login com Google. Para acessar, volte para o
+            <RouterLink to="/login" class="alert-link">login</RouterLink>
+            e entre com sua conta Google.
+          </div>
+
           <div class="d-grid">
-            <button type="submit" class="btn btn-primary" :disabled="carregando">
+            <button type="submit" class="btn btn-primary" :disabled="carregando || sugestaoGoogle">
               {{ carregando ? 'Enviando...' : 'Enviar código de recuperação' }}
             </button>
           </div>
@@ -76,15 +83,18 @@ const canal = ref('email')
 const identificador = ref('')
 const erro = ref('')
 const carregando = ref(false)
+const sugestaoGoogle = ref(false)
 
 function selecionarCanal(novoCanal) {
   canal.value = novoCanal
   identificador.value = ''
   erro.value = ''
+  sugestaoGoogle.value = false
 }
 
 async function enviar() {
   erro.value = ''
+  sugestaoGoogle.value = false
   carregando.value = true
 
   try {
@@ -92,7 +102,12 @@ async function enviar() {
       ? { email: identificador.value.trim() }
       : { telefone: identificador.value }
 
-    await iniciarRecuperacaoSenha(payload)
+    const response = await iniciarRecuperacaoSenha(payload)
+
+    if (response.sugestaoLoginGoogle) {
+      sugestaoGoogle.value = true
+      return
+    }
 
     router.push({ path: '/redefinir-senha', query: payload })
   } catch (e) {

@@ -125,12 +125,10 @@ public class EmailService {
 
     @Async
     public void enviarAvisoRecuperacaoViaTelefone(String nome, String email, String ip,
-                                                   LocalDateTime dataHora, String tokenCancelamento,
-                                                   String telefone) {
+                                                   LocalDateTime dataHora, String telefone) {
         ConfiguracaoAplicacao config = validarSetupEmail();
 
         String dataFormatada = dataHora.format(DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm:ss"));
-        String urlCancelamento = config.getFrontendBaseUrl() + "/recuperar-senha/cancelar?t=" + tokenCancelamento;
         String linhaLocalizacao = construirLinhaLocalizacao(ip);
 
         String corpo = """
@@ -149,15 +147,15 @@ public class EmailService {
                     </tr>
                   </table>
                 </div>
-                <p style="margin:0;color:#6c757d;font-size:13px;">Se não foi você, use o botão abaixo para cancelar imediatamente e invalidar o código enviado.</p>
+                <p style="margin:0;color:#6c757d;font-size:13px;">Se não foi você, recomendamos que acesse sua conta imediatamente e altere suas credenciais.</p>
                 """.formatted(nome, telefone, ip, linhaLocalizacao, dataFormatada);
 
         String html = construirHtml(
                 "Alerta de recuperação de senha",
                 "Solicitação via WhatsApp/SMS",
                 corpo,
-                "Cancelar recuperação de senha",
-                urlCancelamento
+                null,
+                null
         );
 
         enviar(config, email, "Alerta: recuperação de senha solicitada - AuthLuiz", html);
@@ -316,7 +314,7 @@ public class EmailService {
         return ipGeolocalizacaoService.obterLocalizacao(ip)
                 .map(loc -> """
                         <tr>
-                          <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Localização</td>
+                          <td style="padding:5px 0;color:#6c757d;font-size:13px;width:130px;">Localização aproximada</td>
                           <td style="padding:5px 0;font-weight:700;font-size:14px;color:#111827;">%s</td>
                         </tr>
                         """.formatted(loc))

@@ -78,7 +78,7 @@ src/main/java/.../authluiz/
 │   │
 │   ├── autenticacao/
 │   │   ├── entity/
-│   │   │   ├── TokenRecuperacaoSenha    Token de redefinição de senha (código 6 dígitos + tokenCancelamento UUID)
+│   │   │   ├── TokenRecuperacaoSenha    Token de redefinição de senha (código 6 dígitos, expira em 5 min)
 │   │   │   ├── ControleEnvioCodigoIp    Rate limiting por IP para qualquer envio de código (e-mail ou SMS/WhatsApp)
 │   │   │   ├── TokenConfirmacao         Token hasheado para verificação de cadastro e alteração de e-mail
 │   │   │   ├── TipoTokenConfirmacao     Enum: VERIFICACAO_CADASTRO | ALTERACAO_EMAIL | ALTERACAO_TELEFONE
@@ -149,7 +149,8 @@ src/main/java/.../authluiz/
 | `V9__telefone_pendente_usuario.sql`           | Adiciona coluna `telefonePendente` (VARCHAR 20, nullable) à tabela `usuario` |
 | `V10__token_confirmacao_telefone_destino.sql` | Adiciona coluna `telefoneDestino` (VARCHAR 20, nullable) à tabela `tokenConfirmacao` |
 | `V11`–`V18` | Configuração Twilio, auditoria configurável, renomeações de colunas, token blacklist, `publicId` na tabela `usuario` |
-| `V19__token_cancelamento_recuperacao_senha.sql` | Adiciona coluna `tokenCancelamento` (VARCHAR 36, nullable) à tabela `tokenRecuperacaoSenha` — UUID gerado para tokens criados pelo canal telefone, usado para cancelamento via e-mail |
+| `V19__token_cancelamento_recuperacao_senha.sql` | Adiciona coluna `tokenCancelamento` (VARCHAR 36, nullable) à tabela `tokenRecuperacaoSenha` |
+| `V20__remover_token_cancelamento_recuperacao_senha.sql` | Remove coluna `tokenCancelamento` da tabela `tokenRecuperacaoSenha` |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -329,9 +330,23 @@ Envia um código numérico de 6 dígitos para iniciar a recuperação. Informe `
 
 ---
 
+**`POST /auth/recuperacao/validar`** — Pública
+
+Valida o código de recuperação sem alterar a senha. Deve ser chamado antes de `/redefinir` para confirmar que o código está correto. Decrementa tentativas em caso de erro e bloqueia o token após 5 tentativas erradas (exige novo código via `/iniciar`).
+
+```json
+{ "email": "joao@email.com", "codigo": "123456" }
+```
+
+```json
+{ "telefone": "+5511999999999", "codigo": "123456" }
+```
+
+---
+
 **`POST /auth/recuperacao/redefinir`** — Pública
 
-Redefine a senha usando o código recebido. Informe o mesmo identificador (`email` ou `telefone`) usado na etapa anterior. O código expira em 5 minutos e bloqueia após 5 tentativas erradas. Após redefinição bem-sucedida, um e-mail de confirmação é sempre enviado ao endereço cadastrado.
+Redefine a senha usando o código previamente validado. Informe o mesmo identificador (`email` ou `telefone`) e o mesmo código da etapa anterior. O código expira em 5 minutos. Após redefinição bem-sucedida, um e-mail de confirmação é sempre enviado ao endereço cadastrado.
 
 ```json
 { "email": "joao@email.com", "codigo": "123456", "novaSenha": "@NovaSenha123" }
@@ -340,18 +355,6 @@ Redefine a senha usando o código recebido. Informe o mesmo identificador (`emai
 ```json
 { "telefone": "+5511999999999", "codigo": "123456", "novaSenha": "@NovaSenha123" }
 ```
-
----
-
-**`POST /auth/recuperacao/cancelar`** — Pública
-
-Cancela (invalida) um token de recuperação de senha antes que ele seja usado. O `tokenCancelamento` é um UUID único gerado quando a recuperação é iniciada pelo canal telefone. Esse UUID chega ao usuário como link no e-mail de alerta enviado paralelamente ao código WhatsApp/SMS (`/recuperar-senha/cancelar?t=<uuid>`).
-
-```json
-{ "tokenCancelamento": "550e8400-e29b-41d4-a716-446655440000" }
-```
-
-Resposta: `{ "mensagem": "Recuperação de senha cancelada com sucesso." }`
 
 ---
 
