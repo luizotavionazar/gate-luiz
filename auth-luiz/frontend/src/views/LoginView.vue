@@ -161,9 +161,21 @@ async function autenticarComGoogle(idToken) {
   googleCarregando.value = true
 
   try {
-    const resposta = await loginComGoogle({ idToken })
-    salvarSessao(resposta)
-    redirecionarConta()
+    const { status, data } = await loginComGoogle({ idToken })
+    if (status === 202) {
+      router.push({
+        name: 'verificacaoLogin',
+        query: {
+          token: data.tokenPendente,
+          tipo: data.tipo,
+          destino: data.destinoMascarado,
+          canais: (data.canaisDisponiveis ?? []).join(',')
+        }
+      })
+    } else {
+      salvarSessao(data)
+      redirecionarConta()
+    }
   } catch (e) {
     googleMensagem.value = extrairMensagemErro(e, 'Não foi possível entrar com Google.')
     console.error(e)

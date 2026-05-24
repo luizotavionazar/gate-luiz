@@ -40,8 +40,12 @@ public class EnvioCodigoRateLimitService {
                     retryAfterSeconds);
         }
 
-        if (controle.getJanelaInicio() == null
-                || agora.isAfter(controle.getJanelaInicio().plusMinutes(JANELA_MINUTOS))) {
+        // Bloqueio expirou ou janela de 10 min expirou: reinicia contagem
+        boolean bloqueioExpirou = controle.getBloqueadoAte() != null;
+        boolean janelaExpirou = controle.getJanelaInicio() == null
+                || agora.isAfter(controle.getJanelaInicio().plusMinutes(JANELA_MINUTOS));
+
+        if (bloqueioExpirou || janelaExpirou) {
             controle.setJanelaInicio(agora);
             controle.setQuantidade(1);
             controle.setBloqueadoAte(null);

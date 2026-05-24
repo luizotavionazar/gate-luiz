@@ -93,6 +93,10 @@ public class DoisFatoresService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Confirme seu e-mail antes de alterar as configurações de autenticação.");
         }
+        if (ativo && !usuario.possuiSenha()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Defina uma senha antes de ativar a verificação extra.");
+        }
         if (!ativo && usuario.isTotpAtivo()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Desative o autenticador antes de desabilitar a verificação extra.");

@@ -13,7 +13,7 @@
         <template v-else>
           <i class="bi bi-envelope-check text-primary" style="font-size: 3rem;"></i>
           <h1 class="h4 fw-bold mt-3 mb-1">Verifique seu e-mail</h1>
-          <p class="text-muted mb-4">Digite o código de 6 dígitos enviado para a caixa de entrada de {{ usuario?.emailPendente }}.</p>
+          <p class="text-muted mb-4">Digite o código de 6 dígitos enviado para <strong>{{ tipoAlteracao ? usuario?.emailPendente : usuario?.email }}</strong>.</p>
 
           <form @submit.prevent="confirmar">
             <div class="d-flex justify-content-center gap-2 mb-3">
@@ -62,7 +62,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { confirmarEmail, reenviarConfirmacaoAlteracaoEmail, reenviarVerificacao } from '../services/autenticacaoService'
+import { buscarMinhaConta, confirmarEmail, reenviarConfirmacaoAlteracaoEmail, reenviarVerificacao } from '../services/autenticacaoService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 
 const route = useRoute()
@@ -70,6 +70,8 @@ const tipoAlteracao = route.query.tipo === 'alteracao'
 
 const digitos = reactive(Array(6).fill(''))
 const inputs = ref([])
+
+const usuario = ref(null)
 
 const sucesso = ref(false)
 const confirmando = ref(false)
@@ -156,6 +158,13 @@ async function reenviar() {
   }
 }
 
-onMounted(iniciarCooldown)
+onMounted(async () => {
+  iniciarCooldown()
+  try {
+    usuario.value = await buscarMinhaConta()
+  } catch {
+    // exibição do e-mail é não-crítica
+  }
+})
 onUnmounted(() => clearInterval(intervalo))
 </script>

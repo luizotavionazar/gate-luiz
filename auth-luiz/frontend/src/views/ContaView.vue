@@ -66,31 +66,6 @@
           <div v-if="erroSolicitarVerificacaoTelefone" class="small mt-2 text-danger-emphasis">{{ erroSolicitarVerificacaoTelefone }}</div>
         </div>
 
-        <div class="card shadow border-0 rounded-4 mb-4">
-          <div class="card-body p-4">
-            <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
-              <div>
-                <h2 class="h5 mb-2">Resumo da conta</h2>
-                <p class="mb-1"><strong>{{ conta.nome }}</strong></p>
-                <p class="text-muted mb-0">{{ conta.email }}</p>
-                <p class="text-muted mb-0">{{ conta.telefone }}</p>
-              </div>
-
-            </div>
-
-            <hr class="my-4" />
-
-            <div class="row g-3 small text-muted">
-              <div class="col-md-6">
-                <div><strong class="text-dark">Criada em:</strong> {{ formatarDataHora(conta.dataCriacao) }}</div>
-              </div>
-              <div class="col-md-6">
-                <div><strong class="text-dark">Atualizada em:</strong> {{ formatarDataHora(conta.dataAtualiza) }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div class="row g-4">
           <div class="col-lg-6">
             <div class="card shadow border-0 rounded-4 h-100">
@@ -224,11 +199,16 @@
                       type="checkbox"
                       role="switch"
                       :checked="status2fa?.verificacaoExtraAtiva"
-                      :disabled="carregando2fa || !conta.emailVerificado || status2fa?.totpAtivo"
-                      :title="!conta.emailVerificado ? 'Confirme seu e-mail para ativar esta opção' : status2fa?.totpAtivo ? 'Desative o autenticador antes de desabilitar' : ''"
+                      :disabled="carregando2fa || !conta?.temSenha || !conta?.emailVerificado || status2fa?.totpAtivo"
+                      :title="!conta?.temSenha ? 'Defina uma senha para ativar esta opção' : !conta?.emailVerificado ? 'Confirme seu e-mail para ativar esta opção' : status2fa?.totpAtivo ? 'Desative o autenticador antes de desabilitar' : ''"
                       @change="toggleVerificacaoExtra"
                     />
                   </div>
+                </div>
+
+                <div v-if="!status2fa?.verificacaoExtraAtiva && !conta?.temSenha" class="alert alert-warning py-2 small mt-3 mb-0">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  Para ativar a verificação extra é necessário ter uma senha definida na conta.
                 </div>
 
                 <template v-if="status2fa?.verificacaoExtraAtiva">
@@ -249,7 +229,7 @@
                         </div>
                       </div>
                       <div class="d-flex gap-2 flex-shrink-0">
-                        <button v-if="!status2fa?.totpAtivo" class="btn btn-primary" @click="iniciarSetupTotp" :disabled="carregando2fa || !conta.emailVerificado" :title="!conta.emailVerificado ? 'Confirme seu e-mail para ativar o 2FA' : ''">
+                        <button v-if="!status2fa?.totpAtivo" class="btn btn-primary" @click="iniciarSetupTotp" :disabled="carregando2fa || !conta?.emailVerificado" :title="!conta?.emailVerificado ? 'Confirme seu e-mail para ativar o 2FA' : ''">
                           Ativar autenticador
                         </button>
                         <button v-else class="btn btn-sm btn-outline-danger" @click="abrirModalDesativar2fa" :disabled="carregando2fa">
@@ -328,7 +308,7 @@
                     <p class="text-muted mb-0 small">
                       {{ conta.temSenha
                         ? 'Informe a senha atual e escolha uma nova senha.'
-                        : 'Sua conta foi criada sem senha. Defina uma senha para também poder entrar por e-mail.' }}
+                        : 'Sua conta foi criada sem senha. É recomendado definir uma senha agora!' }}
                     </p>
                   </div>
                 </div>
@@ -411,20 +391,13 @@
             <img :src="qrDataUrl" alt="QR Code TOTP" style="width: 200px; height: 200px;" />
           </div>
           <div v-else class="text-center text-muted small mb-3">Gerando QR Code...</div>
-          <div class="d-flex gap-2 justify-content-end">
-            <button class="btn btn-outline-secondary" @click="fecharModalTotp">Cancelar</button>
-            <button class="btn btn-primary" @click="etapaTotp = 2">Próximo</button>
-          </div>
-        </template>
-
-        <template v-else-if="etapaTotp === 2">
-          <p class="text-muted small mb-3">Digite o código de 6 dígitos do aplicativo para confirmar.</p>
+          <p class="text-muted small mb-3">Em seguida, insira o código de 6 dígitos para confirmar.</p>
           <div class="mb-3">
             <CodigoInput v-model="codigoTotp" @submit="confirmarSetupTotp" />
           </div>
           <div v-if="erroTotp" class="alert alert-danger py-2 small mb-3">{{ erroTotp }}</div>
           <div class="d-flex gap-2 justify-content-end">
-            <button class="btn btn-outline-secondary" @click="etapaTotp = 1" :disabled="confirmandoTotp">Voltar</button>
+            <button class="btn btn-outline-secondary" @click="fecharModalTotp" :disabled="confirmandoTotp">Cancelar</button>
             <button class="btn btn-primary" @click="confirmarSetupTotp" :disabled="confirmandoTotp || codigoTotp.length < 6">
               {{ confirmandoTotp ? 'Confirmando...' : 'Confirmar' }}
             </button>
@@ -435,6 +408,14 @@
           <p class="text-muted small mb-2">TOTP ativado! Guarde estes códigos de backup em local seguro. Eles só aparecem uma vez.</p>
           <div class="bg-light rounded p-3 mb-3 font-monospace small">
             <div v-for="(c, i) in codigosBackup" :key="i">{{ c }}</div>
+          </div>
+          <div class="d-flex gap-2 mb-3">
+            <button class="btn btn-outline-secondary btn-sm flex-fill" @click="copiarCodigosBackup">
+              <i class="bi bi-clipboard me-1"></i>{{ copiouBackup ? 'Copiado!' : 'Copiar todos' }}
+            </button>
+            <button class="btn btn-outline-secondary btn-sm flex-fill" @click="baixarCodigosBackup">
+              <i class="bi bi-download me-1"></i>Baixar .txt
+            </button>
           </div>
           <div class="d-grid">
             <button class="btn btn-primary" @click="fecharModalTotp">Concluir</button>
@@ -451,7 +432,12 @@
         <h2 class="h5 fw-bold mb-1">Desativar autenticador</h2>
         <p class="text-muted small mb-3">Confirme sua senha para desativar o TOTP.</p>
         <div class="mb-3">
-          <input v-model="senhaDesativar2fa" type="password" class="form-control" placeholder="Sua senha atual" />
+          <div class="position-relative">
+            <input v-model="senhaDesativar2fa" :type="mostrarSenhaDesativar2fa ? 'text' : 'password'" class="form-control pe-5 campo-senha" placeholder="Sua senha atual" :disabled="desativando2fa" @keyup.enter="confirmarDesativar2fa" />
+            <button type="button" class="btn btn-sm border-0 bg-transparent position-absolute top-50 end-0 translate-middle-y me-2 text-muted" @click="mostrarSenhaDesativar2fa = !mostrarSenhaDesativar2fa" :aria-label="mostrarSenhaDesativar2fa ? 'Ocultar senha' : 'Mostrar senha'">
+              <i :class="mostrarSenhaDesativar2fa ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
         </div>
         <div v-if="erroDesativar2fa" class="alert alert-danger py-2 small mb-3">{{ erroDesativar2fa }}</div>
         <div class="d-flex gap-2 justify-content-end">
@@ -525,7 +511,7 @@
         <div class="d-flex gap-2 justify-content-end">
           <button class="btn btn-outline-secondary" @click="modalDesativarVerificacaoExtraVisivel = false" :disabled="desativandoVerificacaoExtra">Cancelar</button>
           <button
-            class="btn btn-warning"
+            class="btn btn-primary"
             @click="confirmarDesativarVerificacaoExtra"
             :disabled="desativandoVerificacaoExtra || !senhaDesativarVerificacaoExtra"
           >
@@ -781,9 +767,11 @@ const codigoTotp = ref('')
 const erroTotp = ref('')
 const confirmandoTotp = ref(false)
 const codigosBackup = ref([])
+const copiouBackup = ref(false)
 
 const modalDesativar2faVisivel = ref(false)
 const senhaDesativar2fa = ref('')
+const mostrarSenhaDesativar2fa = ref(false)
 const erroDesativar2fa = ref('')
 const desativando2fa = ref(false)
 
@@ -1229,10 +1217,28 @@ function fecharModalTotp() {
   codigosBackup.value = []
   codigoTotp.value = ''
   qrDataUrl.value = ''
+  copiouBackup.value = false
+}
+
+async function copiarCodigosBackup() {
+  await navigator.clipboard.writeText(codigosBackup.value.join('\n'))
+  copiouBackup.value = true
+  setTimeout(() => { copiouBackup.value = false }, 2000)
+}
+
+function baixarCodigosBackup() {
+  const blob = new Blob([codigosBackup.value.join('\n')], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'codigos-backup-2fa.txt'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function abrirModalDesativar2fa() {
   senhaDesativar2fa.value = ''
+  mostrarSenhaDesativar2fa.value = false
   erroDesativar2fa.value = ''
   modalDesativar2faVisivel.value = true
 }

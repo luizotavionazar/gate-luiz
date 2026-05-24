@@ -1,6 +1,7 @@
 package br.com.luizotavionazar.authluiz.domain.identidadeexterna.service;
 
 import br.com.luizotavionazar.authluiz.config.security.GoogleAudienceValidator;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -14,6 +15,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+@Slf4j
 @Service
 public class GoogleIdTokenValidatorService {
 
@@ -40,6 +42,7 @@ public class GoogleIdTokenValidatorService {
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception ex) {
+            log.error("Erro inesperado ao validar idToken do Google: {}", ex.getMessage(), ex);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                     "Não foi possível validar o idToken do Google!");
         }

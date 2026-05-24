@@ -32,19 +32,19 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, _from, next) => {
-  const token = getToken()
-  const publicPaths = ['/setup']
-
-  if (!publicPaths.includes(to.path)) {
-    try {
-      const status = await obterStatusSetup()
-      if (!status.setupConcluido) {
-        return next('/setup')
-      }
-    } catch {
-      return next('/setup')
+  try {
+    const status = await obterStatusSetup()
+    if (!status.setupConcluido) {
+      return to.path === '/setup' ? next() : next('/setup')
     }
+    if (to.path === '/setup') {
+      return next('/login')
+    }
+  } catch {
+    return to.path === '/setup' ? next() : next('/setup')
   }
+
+  const token = getToken()
 
   if (token && isTokenExpired()) {
     logout()

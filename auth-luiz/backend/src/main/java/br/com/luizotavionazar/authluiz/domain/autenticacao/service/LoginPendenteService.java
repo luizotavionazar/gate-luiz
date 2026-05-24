@@ -33,7 +33,9 @@ public class LoginPendenteService {
 
     public LoginPendente criar(Usuario usuario, String ip) {
         String tipo = determinarTipo(usuario);
-        String codigo = "TOTP".equals(tipo) ? null : TokenUtils.gerarCodigoNumerico6Digitos();
+        String codigo = ("TOTP".equals(tipo) || "AGUARDANDO_CANAL".equals(tipo))
+                ? null
+                : TokenUtils.gerarCodigoNumerico6Digitos();
         String token = (UUID.randomUUID().toString() + UUID.randomUUID().toString())
                 .replace("-", "").substring(0, 64);
 
@@ -107,6 +109,11 @@ public class LoginPendenteService {
                     "Reenvio não disponível para autenticação via aplicativo TOTP.");
         }
 
+        if ("AGUARDANDO_CANAL".equals(lp.getTipo()) && canal == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Selecione um canal para envio do código.");
+        }
+
         Usuario usuario = usuarioRepository.findById(lp.getIdUsuario()).orElseThrow();
 
         if (canal != null && !canal.equals(lp.getTipo())) {
@@ -139,6 +146,7 @@ public class LoginPendenteService {
 
     private String determinarTipo(Usuario usuario) {
         if (usuario.isTotpAtivo()) return "TOTP";
+        if (usuario.getTelefone() != null && usuario.isTelefoneVerificado()) return "AGUARDANDO_CANAL";
         if (usuario.getPreferencia2fa() != null) return usuario.getPreferencia2fa();
         return "EMAIL";
     }

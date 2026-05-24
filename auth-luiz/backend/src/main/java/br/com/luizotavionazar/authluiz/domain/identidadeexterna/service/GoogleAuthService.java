@@ -1,11 +1,15 @@
 package br.com.luizotavionazar.authluiz.domain.identidadeexterna.service;
 
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginPendenteResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
 import br.com.luizotavionazar.authluiz.api.oauth.dto.DesvincularGoogleRequest;
 import br.com.luizotavionazar.authluiz.api.oauth.dto.GoogleLoginRequest;
 import br.com.luizotavionazar.authluiz.config.security.JwtService;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.LoginPendente;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.IpConfiavelService;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LoginPendenteService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.IdentidadeExterna;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
@@ -31,9 +35,11 @@ public class GoogleAuthService {
     private final PasswordEncoder passwordEncoder;
     private final GoogleIdTokenValidatorService googleIdTokenValidatorService;
     private final EmailService emailService;
+    private final IpConfiavelService ipConfiavelService;
+    private final LoginPendenteService loginPendenteService;
 
     @Transactional
-    public LoginResponse autenticar(GoogleLoginRequest request) {
+    public Object autenticar(GoogleLoginRequest request, String ip) {
         Jwt jwt = googleIdTokenValidatorService.validar(request.idToken());
         GoogleUsuarioInfo googleUsuario = extrairUsuario(jwt);
 
@@ -43,11 +49,21 @@ public class GoogleAuthService {
 
         if (identidadeExistente != null) {
             Integer idUsuario = identidadeExistente.getUsuario().getId();
-            usuarioRepository.atualizarUltimoLogin(idUsuario, LocalDateTime.now());
-            // Re-fetch after clearAutomatically=true detaches the lazy proxy
             Usuario usuario = usuarioRepository.findById(idUsuario)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
             AuditoriaService.definirDetalhes("E-mail: " + googleUsuario.emailNormalizado());
+
+            if (usuario.isVerificacaoExtraAtiva()) {
+                boolean ipConhecido = ip != null && (ip.equals(usuario.getUltimoIp())
+                        || ipConfiavelService.ehConfiavel(usuario.getId(), ip));
+                if (!ipConhecido) {
+                    LoginPendente lp = loginPendenteService.criar(usuario, ip);
+                    return LoginPendenteResponse.from(lp, usuario);
+                }
+            }
+
+            usuarioRepository.atualizarUltimoLogin(idUsuario, LocalDateTime.now());
+            usuarioRepository.atualizarUltimoIp(idUsuario, ip);
             return gerarRespostaLogin(usuario);
         }
 
@@ -67,6 +83,7 @@ public class GoogleAuthService {
                 .senhaHash(null)
                 .providerOrigem(ProviderExterno.GOOGLE)
                 .ultimoLogin(LocalDateTime.now())
+                .ultimoIp(ip)
                 .build());
 
         criarVinculoGoogle(novoUsuario, googleUsuario);

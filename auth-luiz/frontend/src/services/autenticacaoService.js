@@ -30,7 +30,7 @@ export async function loginComStatus(dados) {
 
 export async function loginComGoogle(dados) {
   const response = await authApi.post('/auth/oauth/google', dados)
-  return response.data
+  return { status: response.status, data: response.data }
 }
 
 export async function vincularGoogle(dados) {

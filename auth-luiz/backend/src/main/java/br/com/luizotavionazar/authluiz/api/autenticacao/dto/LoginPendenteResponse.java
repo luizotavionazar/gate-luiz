@@ -29,6 +29,15 @@ public record LoginPendenteResponse(
 
     private static List<String> canaisAlternativos(String tipo, Usuario usuario) {
         if ("TOTP".equals(tipo)) return List.of();
+        if ("AGUARDANDO_CANAL".equals(tipo)) {
+            List<String> canais = new ArrayList<>();
+            canais.add("EMAIL");
+            if (usuario.getTelefone() != null && usuario.isTelefoneVerificado()) {
+                canais.add("WHATSAPP");
+                canais.add("SMS");
+            }
+            return canais;
+        }
         List<String> canais = new ArrayList<>();
         if ("EMAIL".equals(tipo) && usuario.getTelefone() != null && usuario.isTelefoneVerificado()) {
             canais.add("SMS");
@@ -42,7 +51,7 @@ public record LoginPendenteResponse(
 
     public static String mascarar(String tipo, Usuario usuario) {
         return switch (tipo) {
-            case "TOTP" -> null;
+            case "TOTP", "AGUARDANDO_CANAL" -> null;
             case "EMAIL" -> mascararEmail(usuario.getEmail());
             default -> mascararTelefone(usuario.getTelefone());
         };
