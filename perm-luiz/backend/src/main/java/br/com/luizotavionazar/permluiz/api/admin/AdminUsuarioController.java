@@ -58,6 +58,10 @@ public class AdminUsuarioController {
                         u.telefoneVerificado(),
                         u.possuiSenha(),
                         u.googleVinculado(),
+                        u.verificacaoExtraAtiva(),
+                        u.totpAtivo(),
+                        u.codigosBackupRestantes(),
+                        u.ipsConfiaveis(),
                         rolesPorUsuario.getOrDefault(u.publicId(), List.of())
                 ))
                 .toList();

@@ -13,5 +13,9 @@ public record UsuarioAuthResponse(
         boolean emailVerificado,
         boolean telefoneVerificado,
         boolean possuiSenha,
-        boolean googleVinculado
+        boolean googleVinculado,
+        boolean verificacaoExtraAtiva,
+        boolean totpAtivo,
+        int codigosBackupRestantes,
+        int ipsConfiaveis
 ) {}

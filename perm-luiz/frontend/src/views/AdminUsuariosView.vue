@@ -299,6 +299,34 @@ function formatarData(data) {
               </div>
             </div>
             <hr class="my-3">
+            <div class="text-muted small fw-semibold mb-2">Autenticação 2FA</div>
+            <div class="d-flex flex-column gap-2 mb-3">
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">Verificação extra ativa</span>
+                <span :class="usuarioDetalhes?.verificacaoExtraAtiva ? 'badge bg-success' : 'badge bg-secondary'">
+                  {{ usuarioDetalhes?.verificacaoExtraAtiva ? 'Sim' : 'Não' }}
+                </span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">App autenticador (TOTP)</span>
+                <span :class="usuarioDetalhes?.totpAtivo ? 'badge bg-success' : 'badge bg-secondary'">
+                  {{ usuarioDetalhes?.totpAtivo ? 'Ativo' : 'Inativo' }}
+                </span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">Códigos de backup restantes</span>
+                <span class="badge" :class="usuarioDetalhes?.codigosBackupRestantes > 0 ? 'bg-dark' : 'bg-secondary'">
+                  {{ usuarioDetalhes?.totpAtivo ? usuarioDetalhes?.codigosBackupRestantes : '—' }}
+                </span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                <span class="small">Dispositivos confiáveis</span>
+                <span class="badge" :class="usuarioDetalhes?.ipsConfiaveis > 0 ? 'bg-dark' : 'bg-secondary'">
+                  {{ usuarioDetalhes?.verificacaoExtraAtiva ? usuarioDetalhes?.ipsConfiaveis : '—' }}
+                </span>
+              </div>
+            </div>
+            <hr class="my-3">
             <div class="text-muted small fw-semibold mb-2">Roles e Permissões</div>
             <div v-if="!usuarioDetalhes?.roles?.length" class="text-muted small">Nenhum role atribuído.</div>
             <div v-else class="d-flex flex-column gap-2">

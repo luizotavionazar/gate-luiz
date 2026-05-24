@@ -15,5 +15,9 @@ public record UsuarioComRolesResponse(
         boolean telefoneVerificado,
         boolean possuiSenha,
         boolean googleVinculado,
+        boolean verificacaoExtraAtiva,
+        boolean totpAtivo,
+        int codigosBackupRestantes,
+        int ipsConfiaveis,
         List<RoleResponse> roles
 ) {}
