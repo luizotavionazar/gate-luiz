@@ -15,9 +15,14 @@ public record UsuarioInternoResponse(
         boolean emailVerificado,
         boolean telefoneVerificado,
         boolean possuiSenha,
-        boolean googleVinculado
+        boolean googleVinculado,
+        boolean verificacaoExtraAtiva,
+        boolean totpAtivo,
+        int codigosBackupRestantes,
+        int ipsConfiaveis
 ) {
-    public static UsuarioInternoResponse de(Usuario u, boolean googleVinculado) {
+    public static UsuarioInternoResponse de(Usuario u, boolean googleVinculado,
+                                            int codigosBackupRestantes, int ipsConfiaveis) {
         return new UsuarioInternoResponse(
                 u.getPublicId(),
                 u.getNome(),
@@ -29,7 +34,11 @@ public record UsuarioInternoResponse(
                 u.isEmailVerificado(),
                 u.isTelefoneVerificado(),
                 u.possuiSenha(),
-                googleVinculado
+                googleVinculado,
+                u.isVerificacaoExtraAtiva(),
+                u.isTotpAtivo(),
+                codigosBackupRestantes,
+                ipsConfiaveis
         );
     }
 }

@@ -1,14 +1,8 @@
 package br.com.luizotavionazar.authluiz.api.autenticacao.controller;
 
 import br.com.luizotavionazar.authluiz.api.common.IpUtils;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroRequest;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.CadastroResponse;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginRequest;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginResponse;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.RecuperacaoSenhaRequest;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.RedefinirSenhaRequest;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ValidarCodigoRecuperacaoRequest;
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.*;
+
 import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.CategoriaAuditoria;
@@ -43,13 +37,19 @@ public class AutenticacaoController {
 
     @Auditavel(acao = AcaoAuditoria.LOGIN_SUCESSO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(autenticacaoService.login(request));
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request,
+                                   HttpServletRequest httpRequest) {
+        String ip = IpUtils.extrairIp(httpRequest);
+        Object resultado = autenticacaoService.login(request, ip);
+        if (resultado instanceof LoginPendenteResponse lp) {
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(lp);
+        }
+        return ResponseEntity.ok(resultado);
     }
 
     @Auditavel(acao = AcaoAuditoria.RECUPERACAO_SENHA_INICIADA, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/recuperacao/iniciar")
-    public ResponseEntity<MensagemResponse> iniciarRecuperacaoSenha(
+    public ResponseEntity<RecuperacaoIniciarResponse> iniciarRecuperacaoSenha(
             @Valid @RequestBody RecuperacaoSenhaRequest request,
             HttpServletRequest httpRequest
     ) {

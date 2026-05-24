@@ -49,6 +49,7 @@ public class AuditoriaAspect {
 
         try {
             Object resultado = pjp.proceed();
+            int statusHttp = extrairStatusHttp(resultado);
             auditoriaService.registrar(LogAuditoria.builder()
                     .acao(auditavel.acao())
                     .categoria(auditavel.categoria())
@@ -56,7 +57,7 @@ public class AuditoriaAspect {
                     .ipOrigem(ip)
                     .uri(uri)
                     .metodoHttp(metodo)
-                    .statusHttp(200)
+                    .statusHttp(statusHttp)
                     .sucesso(true)
                     .detalhes(AuditoriaService.lerELimparDetalhes())
                     .build());
@@ -98,10 +99,18 @@ public class AuditoriaAspect {
         return null;
     }
 
+    private int extrairStatusHttp(Object resultado) {
+        if (resultado instanceof org.springframework.http.ResponseEntity<?> re) {
+            return re.getStatusCode().value();
+        }
+        return 200;
+    }
+
     private AcaoAuditoria resolverAcaoFalha(AcaoAuditoria acao) {
         return switch (acao) {
             case LOGIN_SUCESSO -> AcaoAuditoria.LOGIN_FALHA;
             case LOGIN_GOOGLE -> AcaoAuditoria.LOGIN_GOOGLE_FALHA;
+            case VERIFICACAO_LOGIN_SUCESSO -> AcaoAuditoria.VERIFICACAO_LOGIN_FALHA;
             default -> acao;
         };
     }

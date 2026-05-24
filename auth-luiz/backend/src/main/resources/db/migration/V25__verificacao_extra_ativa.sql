@@ -1,0 +1,2 @@
+ALTER TABLE "usuario"
+    ADD COLUMN "verificacaoExtraAtiva" BOOLEAN NOT NULL DEFAULT FALSE;

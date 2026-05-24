@@ -92,7 +92,7 @@
 <script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { login, loginComGoogle, salvarSessao } from '../services/autenticacaoService'
+import { loginComGoogle, loginComStatus, salvarSessao } from '../services/autenticacaoService'
 import { cancelarOneTap, exibirOneTap, getGoogleClientId, renderizarBotaoGoogle } from '../services/googleIdentityService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 import TelefoneInput from '../components/TelefoneInput.vue'
@@ -133,9 +133,21 @@ async function fazerLogin() {
   carregando.value = true
 
   try {
-    const resposta = await login({ identificador: identificador.value.trim(), senha: senha.value })
-    salvarSessao(resposta)
-    redirecionarConta()
+    const { status, data } = await loginComStatus({ identificador: identificador.value.trim(), senha: senha.value })
+    if (status === 202) {
+      router.push({
+        name: 'verificacaoLogin',
+        query: {
+          token: data.tokenPendente,
+          tipo: data.tipo,
+          destino: data.destinoMascarado,
+          canais: (data.canaisDisponiveis ?? []).join(',')
+        }
+      })
+    } else {
+      salvarSessao(data)
+      redirecionarConta()
+    }
   } catch (e) {
     mensagem.value = extrairMensagemErro(e, 'Não foi possível realizar o login.')
     console.error(e)

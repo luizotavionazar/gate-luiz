@@ -43,6 +43,30 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     @Query("UPDATE Usuario u SET u.ultimoLogin = :ultimoLogin WHERE u.id = :id")
     void atualizarUltimoLogin(@Param("id") Integer id, @Param("ultimoLogin") LocalDateTime ultimoLogin);
 
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.ultimoIp = :ip WHERE u.id = :id")
+    void atualizarUltimoIp(@Param("id") Integer id, @Param("ip") String ip);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.totpSecretPendente = :secret WHERE u.id = :id")
+    void atualizarTotpSecretPendente(@Param("id") Integer id, @Param("secret") String secret);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.totpSecret = :secret, u.totpAtivo = true, u.totpSecretPendente = null, u.verificacaoExtraAtiva = true WHERE u.id = :id")
+    void ativarTotp(@Param("id") Integer id, @Param("secret") String secret);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.verificacaoExtraAtiva = :ativo WHERE u.id = :id")
+    void atualizarVerificacaoExtra(@Param("id") Integer id, @Param("ativo") boolean ativo);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.totpSecret = null, u.totpAtivo = false, u.totpSecretPendente = null WHERE u.id = :id")
+    void desativarTotp(@Param("id") Integer id);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Usuario u SET u.preferencia2fa = :preferencia WHERE u.id = :id")
+    void atualizarPreferencia2fa(@Param("id") Integer id, @Param("preferencia") String preferencia);
+
     @Query("SELECT u.id FROM Usuario u WHERE u.emailVerificado = false AND u.dataCriacao < :limite")
     List<Integer> findIdsNaoVerificadosAntigos(@Param("limite") LocalDateTime limite);
 }

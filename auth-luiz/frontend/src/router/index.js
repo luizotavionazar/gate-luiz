@@ -8,6 +8,7 @@ import NovaSenhaView from '../views/NovaSenhaView.vue'
 import SetupView from '../views/SetupView.vue'
 import VerificacaoEmailView from '../views/VerificacaoEmailView.vue'
 import VerificacaoTelefoneView from '../views/VerificacaoTelefoneView.vue'
+import VerificacaoLoginView from '../views/VerificacaoLoginView.vue'
 import { getToken, isTokenExpired, logout } from '../services/autenticacaoService'
 import { obterStatusSetup } from '../services/setupService'
 
@@ -21,6 +22,7 @@ const routes = [
   { path: '/nova-senha', name: 'nova-senha', component: NovaSenhaView },
   { path: '/verificar-email', name: 'verificar-email', component: VerificacaoEmailView },
   { path: '/verificar-telefone', name: 'verificar-telefone', component: VerificacaoTelefoneView, meta: { requiresAuth: true } },
+  { path: '/login/verificar', name: 'verificacaoLogin', component: VerificacaoLoginView },
   { path: '/setup', name: 'setup', component: SetupView }
 ]
 

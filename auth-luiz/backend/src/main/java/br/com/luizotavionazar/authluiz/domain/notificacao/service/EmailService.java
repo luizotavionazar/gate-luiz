@@ -274,6 +274,33 @@ public class EmailService {
     }
 
     @Async
+    public void enviarVerificacaoLogin(br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario usuario, String codigo, int expiracaoMinutos) {
+        ConfiguracaoAplicacao config = validarSetupEmail();
+
+        String corpo = """
+                <p style="margin:0 0 12px;">Olá, <strong>%s</strong>!</p>
+                <p style="margin:0 0 24px;">Detectamos um acesso à sua conta a partir de um novo dispositivo ou localização. Insira o código abaixo para confirmar que é você.</p>
+                <div style="text-align:center;margin:28px 0;">
+                  <div style="display:inline-block;background:#f0f4ff;border:2px dashed #0d6efd;border-radius:12px;padding:16px 40px;">
+                    <span style="font-size:36px;font-weight:700;letter-spacing:12px;color:#0d6efd;">%s</span>
+                  </div>
+                  <p style="margin:12px 0 0;color:#6c757d;font-size:13px;">Este código expira em <strong>%d minutos</strong> e pode ser usado apenas uma vez.</p>
+                </div>
+                <p style="margin:24px 0 0;color:#6c757d;font-size:13px;">Se não foi você, altere sua senha imediatamente.</p>
+                """.formatted(usuario.getNome(), codigo, expiracaoMinutos);
+
+        String html = construirHtml(
+                "Código de verificação de acesso",
+                "Confirme que é você",
+                corpo,
+                null,
+                null
+        );
+
+        enviar(config, usuario.getEmail(), "Código de verificação de acesso - AuthLuiz", html);
+    }
+
+    @Async
     public void enviarNotificacaoRedefinicaoSenha(String nome, String email, String ip, LocalDateTime dataHora) {
         ConfiguracaoAplicacao config = validarSetupEmail();
 

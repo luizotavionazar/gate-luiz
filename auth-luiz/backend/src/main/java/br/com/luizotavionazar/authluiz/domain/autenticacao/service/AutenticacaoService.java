@@ -3,6 +3,7 @@ package br.com.luizotavionazar.authluiz.domain.autenticacao.service;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.*;
 import br.com.luizotavionazar.authluiz.api.common.exception.ExcecaoLimiteTentativas;
 import br.com.luizotavionazar.authluiz.config.security.JwtService;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.LoginPendente;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenRecuperacaoSenha;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.event.UsuarioCadastradoEvent;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.TokenRecuperacaoSenhaRepository;
@@ -42,6 +43,8 @@ public class AutenticacaoService {
     private final PoliticaSenhaService politicaSenhaService;
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final TokenRecuperacaoSenhaExpiracaoService tokenRecuperacaoSenhaExpiracaoService;
+    private final IpConfiavelService ipConfiavelService;
+    private final LoginPendenteService loginPendenteService;
 
     private static final long COOLDOWN_TOKEN_MINUTES = 1;
     private static final long EXPIRACAO_TOKEN_MINUTES = 5;
@@ -70,7 +73,7 @@ public class AutenticacaoService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public Object login(LoginRequest request, String ip) {
         String identificadorNormalizado = request.identificadorNormalizado();
         String msgCredenciaisInvalidas = request.isEmail()
                 ? "E-mail ou senha incorretos!"
@@ -89,22 +92,38 @@ public class AutenticacaoService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, msgCredenciaisInvalidas);
         }
 
-        usuarioRepository.atualizarUltimoLogin(usuario.getId(), LocalDateTime.now());
-
-        String token = jwtService.gerarToken(usuario);
-        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
-                ProviderExterno.GOOGLE);
-
         String detalhe = request.isEmail()
                 ? "E-mail: " + identificadorNormalizado
                 : "Telefone: " + identificadorNormalizado;
         AuditoriaService.definirDetalhes(detalhe);
 
+        if (usuario.isVerificacaoExtraAtiva()) {
+            boolean ipConhecido = ip != null && (ip.equals(usuario.getUltimoIp())
+                    || ipConfiavelService.ehConfiavel(usuario.getId(), ip));
+
+            if (!ipConhecido) {
+                LoginPendente lp = loginPendenteService.criar(usuario, ip);
+                return LoginPendenteResponse.from(lp, usuario);
+            }
+        }
+
+        return completarLogin(usuario, ip);
+    }
+
+    @Transactional
+    public LoginResponse completarLogin(Usuario usuario, String ip) {
+        usuarioRepository.atualizarUltimoLogin(usuario.getId(), LocalDateTime.now());
+        usuarioRepository.atualizarUltimoIp(usuario.getId(), ip);
+
+        String token = jwtService.gerarToken(usuario);
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(
+                usuario.getId(), ProviderExterno.GOOGLE);
+
         return LoginResponse.from(usuario, temLoginGoogle, token, jwtService.getExpirationMinutes());
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)
-    public MensagemResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request, String ip) {
+    public RecuperacaoIniciarResponse iniciarRecuperacaoSenha(RecuperacaoSenhaRequest request, String ip) {
         envioCodigoRateLimitService.validarLimitePorIp(ip);
 
         if (!request.usarEmail()) {
@@ -277,8 +296,8 @@ public class AutenticacaoService {
         return new MensagemResponse("Senha redefinida com sucesso!");
     }
 
-    private MensagemResponse mensagemGenericaRecuperacao(boolean sugestaoLoginGoogle) {
-        return new MensagemResponse(
+    private RecuperacaoIniciarResponse mensagemGenericaRecuperacao(boolean sugestaoLoginGoogle) {
+        return new RecuperacaoIniciarResponse(
                 "Enviaremos as instruções de recuperação caso exista uma conta vinculada a esse identificador!",
                 sugestaoLoginGoogle);
     }

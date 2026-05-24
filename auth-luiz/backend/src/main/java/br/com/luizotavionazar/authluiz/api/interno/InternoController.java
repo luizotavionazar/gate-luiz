@@ -1,5 +1,7 @@
 package br.com.luizotavionazar.authluiz.api.interno;
 
+import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.CodigoBackup2faRepository;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.repository.UsuarioIPConfiavelRepository;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LogoutService;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
 import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
@@ -21,6 +23,8 @@ public class InternoController {
     private final UsuarioRepository usuarioRepository;
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final LogoutService logoutService;
+    private final CodigoBackup2faRepository codigoBackup2faRepository;
+    private final UsuarioIPConfiavelRepository usuarioIPConfiavelRepository;
 
     @Value("${auth.service.key}")
     private String serviceKey;
@@ -40,7 +44,12 @@ public class InternoController {
         }
         Set<Integer> idsComGoogle = identidadeExternaRepository.findUsuarioIdsByProvider(ProviderExterno.GOOGLE);
         return usuarioRepository.findAll().stream()
-                .map(u -> UsuarioInternoResponse.de(u, idsComGoogle.contains(u.getId())))
+                .map(u -> UsuarioInternoResponse.de(
+                        u,
+                        idsComGoogle.contains(u.getId()),
+                        codigoBackup2faRepository.countByIdUsuarioAndUsadoEmIsNull(u.getId()),
+                        usuarioIPConfiavelRepository.countByIdUsuario(u.getId())
+                ))
                 .toList();
     }
 }

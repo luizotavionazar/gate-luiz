@@ -75,6 +75,26 @@ public class Usuario implements UserDetails {
     @Column(name = "ultimoLogin")
     private LocalDateTime ultimoLogin;
 
+    @Column(name = "ultimoIp", length = 45)
+    private String ultimoIp;
+
+    @Column(name = "totpSecret", length = 500)
+    private String totpSecret;
+
+    @Column(name = "totpSecretPendente", length = 500)
+    private String totpSecretPendente;
+
+    @Builder.Default
+    @Column(name = "totpAtivo", nullable = false)
+    private boolean totpAtivo = false;
+
+    @Builder.Default
+    @Column(name = "verificacaoExtraAtiva", nullable = false)
+    private boolean verificacaoExtraAtiva = false;
+
+    @Column(name = "preferencia2fa", length = 20)
+    private String preferencia2fa;
+
     @PrePersist
     private void gerarPublicId() {
         if (publicId == null) {

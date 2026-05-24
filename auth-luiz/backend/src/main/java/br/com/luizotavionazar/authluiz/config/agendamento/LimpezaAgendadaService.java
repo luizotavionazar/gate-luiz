@@ -1,6 +1,7 @@
 package br.com.luizotavionazar.authluiz.config.agendamento;
 
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaLimpezaService;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LoginPendenteService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LogoutService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,11 +32,13 @@ public class LimpezaAgendadaService {
 
     private final AuditoriaLimpezaService auditoriaLimpezaService;
     private final LogoutService logoutService;
+    private final LoginPendenteService loginPendenteService;
 
     @Scheduled(cron = "0 0 3 * * *")
     public void limpar() {
         executar("auditoria", auditoriaLimpezaService::limpar);
         executar("blacklist de tokens", logoutService::limparExpirados);
+        executar("login pendente", loginPendenteService::limparExpirados);
     }
 
     private void executar(String dominio, Runnable job) {
