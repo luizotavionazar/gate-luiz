@@ -2,6 +2,7 @@ package br.com.luizotavionazar.authluiz.api.conta.controller;
 
 import br.com.luizotavionazar.authluiz.api.common.IpUtils;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginPendenteResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
@@ -22,6 +23,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -88,6 +90,15 @@ public class ContaController {
     ) {
         String publicId = jwt.getSubject();
         return ResponseEntity.ok(contaService.atualizarTelefone(publicId, request, IpUtils.extrairIp(httpRequest)));
+    }
+
+    @PostMapping("/exclusao/codigo")
+    public ResponseEntity<LoginPendenteResponse> enviarCodigoExclusaoConta(
+            @AuthenticationPrincipal Jwt jwt,
+            HttpServletRequest httpRequest
+    ) {
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(contaService.enviarCodigoExclusaoConta(publicId, IpUtils.extrairIp(httpRequest)));
     }
 
     @Auditavel(acao = AcaoAuditoria.CONTA_DELETADA, categoria = CategoriaAuditoria.SEGURANCA)

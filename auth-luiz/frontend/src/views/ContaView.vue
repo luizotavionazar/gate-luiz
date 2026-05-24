@@ -76,18 +76,6 @@
                 <p class="text-muted mb-0">{{ conta.telefone }}</p>
               </div>
 
-              <div class="d-flex flex-wrap gap-2 align-content-start">
-                <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis border">ID {{ conta.publicId }}</span>
-                <span class="badge rounded-pill" :class="conta.temSenha ? 'text-bg-success-subtle text-success-emphasis border' : 'text-bg-warning-subtle text-warning-emphasis border'">
-                  {{ conta.temSenha ? 'Senha ativa' : 'Sem senha' }}
-                </span>
-                <span class="badge rounded-pill" :class="conta.temLoginGoogle ? 'text-bg-success-subtle text-success-emphasis border' : 'text-bg-secondary-subtle text-secondary-emphasis border'">
-                  {{ conta.temLoginGoogle ? 'Google vinculado' : 'Google não vinculado' }}
-                </span>
-                <span class="badge rounded-pill" :class="conta.telefoneVerificado ? 'text-bg-success-subtle text-success-emphasis border' : conta.telefone ? 'text-bg-warning-subtle text-warning-emphasis border' : 'text-bg-secondary-subtle text-secondary-emphasis border'">
-                  {{ conta.telefoneVerificado ? 'Telefone verificado' : conta.telefone ? 'Telefone não verificado' : 'Sem telefone' }}
-                </span>
-              </div>
             </div>
 
             <hr class="my-4" />
@@ -218,6 +206,119 @@
             </div>
           </div>
 
+          <!-- Seção 2FA -->
+          <div class="col-12">
+            <div class="card shadow border-0 rounded-4">
+              <div class="card-body p-4">
+                <h2 class="h5 mb-3">Autenticação 2FA</h2>
+
+                <!-- Toggle verificação extra -->
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                  <div>
+                    <strong class="small">Verificação em dispositivos desconhecidos</strong>
+                    <div class="text-muted small">Ao logar de um IP desconhecido, será solicitado um código de confirmação.</div>
+                  </div>
+                  <div class="form-check form-switch form-switch-lg ms-auto flex-shrink-0">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                      :checked="status2fa?.verificacaoExtraAtiva"
+                      :disabled="carregando2fa || !conta.emailVerificado || status2fa?.totpAtivo"
+                      :title="!conta.emailVerificado ? 'Confirme seu e-mail para ativar esta opção' : status2fa?.totpAtivo ? 'Desative o autenticador antes de desabilitar' : ''"
+                      @change="toggleVerificacaoExtra"
+                    />
+                  </div>
+                </div>
+
+                <template v-if="status2fa?.verificacaoExtraAtiva">
+                  <hr class="my-4" />
+
+                  <div v-if="!status2fa?.totpAtivo" class="alert alert-info py-2 small mb-4">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Sem autenticador ativo, a verificação usa seu e-mail ou telefone cadastrado.
+                    Ative o autenticador abaixo para maior segurança.
+                  </div>
+
+                  <div class="mb-4">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-2">
+                      <div>
+                        <strong class="small">Aplicativo autenticador (TOTP)</strong>
+                        <div class="text-muted small">
+                          {{ status2fa?.totpAtivo ? 'Ativo — use Google Authenticator ou similar.' : 'Desativado.' }}
+                        </div>
+                      </div>
+                      <div class="d-flex gap-2 flex-shrink-0">
+                        <button v-if="!status2fa?.totpAtivo" class="btn btn-primary" @click="iniciarSetupTotp" :disabled="carregando2fa || !conta.emailVerificado" :title="!conta.emailVerificado ? 'Confirme seu e-mail para ativar o 2FA' : ''">
+                          Ativar autenticador
+                        </button>
+                        <button v-else class="btn btn-sm btn-outline-danger" @click="abrirModalDesativar2fa" :disabled="carregando2fa">
+                          Desativar
+                        </button>
+                      </div>
+                    </div>
+
+                    <template v-if="status2fa?.totpAtivo">
+                      <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mt-3">
+                        <div class="small text-muted">
+                          Códigos de backup: <strong>{{ status2fa.codigosRestantes }}</strong> restantes
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" @click="abrirModalRegerarBackup" :disabled="carregando2fa">
+                          Regerar códigos de backup
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+
+                  <hr class="my-4" />
+
+                  <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
+                    <div>
+                      <strong class="small">Dispositivos confiáveis</strong>
+                      <div class="text-muted small">Acessos destes IPs não exigem verificação adicional.</div>
+                    </div>
+                    <button v-if="ipsConfiaveis.length > 0" class="btn btn-sm btn-outline-danger flex-shrink-0" @click="removerTodosIps" :disabled="removendoIps">
+                      Remover todos
+                    </button>
+                  </div>
+
+                  <div class="d-flex gap-2 mb-3">
+                    <input
+                      v-model="rotuloIpAtual"
+                      type="text"
+                      class="form-control form-control-sm"
+                      placeholder="Nome do dispositivo (opcional)"
+                      maxlength="100"
+                    />
+                    <button class="btn btn-sm btn-outline-primary flex-shrink-0" @click="adicionarDispositivoAtual" :disabled="adicionandoIpAtual">
+                      {{ adicionandoIpAtual ? 'Adicionando...' : 'Adicionar este dispositivo' }}
+                    </button>
+                  </div>
+
+                  <div v-if="ipsConfiaveis.length === 0" class="text-muted small">Nenhum dispositivo confiável cadastrado.</div>
+
+                  <ul v-else class="list-group list-group-flush">
+                    <li v-for="ip in ipsConfiaveis" :key="ip.id" class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                      <div>
+                        <code class="small">{{ ip.ip }}</code>
+                        <span v-if="ip.rotulo" class="text-muted small ms-2">— {{ ip.rotulo }}</span>
+                        <div class="text-muted" style="font-size: 11px;">{{ formatarDataHora(ip.criadoEm) }}</div>
+                      </div>
+                      <button class="btn btn-sm btn-outline-danger" @click="removerIp(ip.id)" :disabled="removendoIps">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </li>
+                  </ul>
+
+                  <div v-if="erroIps" class="alert alert-danger py-2 small mt-3">{{ erroIps }}</div>
+                </template>
+
+                <div v-if="mensagem2fa" class="alert alert-success py-2 small mt-3">{{ mensagem2fa }}</div>
+                <div v-if="erro2fa" class="alert alert-danger py-2 small mt-3">{{ erro2fa }}</div>
+              </div>
+            </div>
+          </div>
+
           <div class="col-12">
             <div class="card shadow border-0 rounded-4">
               <div class="card-body p-4">
@@ -298,6 +399,143 @@
     </div>
   </div>
 
+  <!-- Modal setup TOTP -->
+  <div v-if="modalTotpVisivel" class="modal-overlay d-flex align-items-center justify-content-center">
+    <div class="card shadow border-0 rounded-4" style="width: 100%; max-width: 500px;">
+      <div class="card-body p-4">
+        <h2 class="h5 fw-bold mb-1">Ativar autenticador</h2>
+
+        <template v-if="etapaTotp === 1">
+          <p class="text-muted small mb-3">Escaneie o QR code com Google Authenticator, Authy ou similar.</p>
+          <div v-if="qrDataUrl" class="text-center mb-3">
+            <img :src="qrDataUrl" alt="QR Code TOTP" style="width: 200px; height: 200px;" />
+          </div>
+          <div v-else class="text-center text-muted small mb-3">Gerando QR Code...</div>
+          <div class="d-flex gap-2 justify-content-end">
+            <button class="btn btn-outline-secondary" @click="fecharModalTotp">Cancelar</button>
+            <button class="btn btn-primary" @click="etapaTotp = 2">Próximo</button>
+          </div>
+        </template>
+
+        <template v-else-if="etapaTotp === 2">
+          <p class="text-muted small mb-3">Digite o código de 6 dígitos do aplicativo para confirmar.</p>
+          <div class="mb-3">
+            <CodigoInput v-model="codigoTotp" @submit="confirmarSetupTotp" />
+          </div>
+          <div v-if="erroTotp" class="alert alert-danger py-2 small mb-3">{{ erroTotp }}</div>
+          <div class="d-flex gap-2 justify-content-end">
+            <button class="btn btn-outline-secondary" @click="etapaTotp = 1" :disabled="confirmandoTotp">Voltar</button>
+            <button class="btn btn-primary" @click="confirmarSetupTotp" :disabled="confirmandoTotp || codigoTotp.length < 6">
+              {{ confirmandoTotp ? 'Confirmando...' : 'Confirmar' }}
+            </button>
+          </div>
+        </template>
+
+        <template v-else-if="etapaTotp === 3">
+          <p class="text-muted small mb-2">TOTP ativado! Guarde estes códigos de backup em local seguro. Eles só aparecem uma vez.</p>
+          <div class="bg-light rounded p-3 mb-3 font-monospace small">
+            <div v-for="(c, i) in codigosBackup" :key="i">{{ c }}</div>
+          </div>
+          <div class="d-grid">
+            <button class="btn btn-primary" @click="fecharModalTotp">Concluir</button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal desativar 2FA -->
+  <div v-if="modalDesativar2faVisivel" class="modal-overlay d-flex align-items-center justify-content-center">
+    <div class="card shadow border-0 rounded-4" style="width: 100%; max-width: 460px;">
+      <div class="card-body p-4">
+        <h2 class="h5 fw-bold mb-1">Desativar autenticador</h2>
+        <p class="text-muted small mb-3">Confirme sua senha para desativar o TOTP.</p>
+        <div class="mb-3">
+          <input v-model="senhaDesativar2fa" type="password" class="form-control" placeholder="Sua senha atual" />
+        </div>
+        <div v-if="erroDesativar2fa" class="alert alert-danger py-2 small mb-3">{{ erroDesativar2fa }}</div>
+        <div class="d-flex gap-2 justify-content-end">
+          <button class="btn btn-outline-secondary" @click="modalDesativar2faVisivel = false" :disabled="desativando2fa">Cancelar</button>
+          <button class="btn btn-danger" @click="confirmarDesativar2fa" :disabled="desativando2fa || !senhaDesativar2fa">
+            {{ desativando2fa ? 'Desativando...' : 'Desativar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal regerar backup codes -->
+  <div v-if="modalRegerarBackupVisivel" class="modal-overlay d-flex align-items-center justify-content-center">
+    <div class="card shadow border-0 rounded-4" style="width: 100%; max-width: 460px;">
+      <div class="card-body p-4">
+        <template v-if="!codigosBackupRegenerados.length">
+          <h2 class="h5 fw-bold mb-1">Regerar códigos de backup</h2>
+          <p class="text-muted small mb-3">Os códigos antigos serão invalidados. Confirme com seu código TOTP.</p>
+          <div class="mb-3">
+            <CodigoInput v-model="codigoTotpRegerar" @submit="confirmarRegerarBackup" />
+          </div>
+          <div v-if="erroRegerarBackup" class="alert alert-danger py-2 small mb-3">{{ erroRegerarBackup }}</div>
+          <div class="d-flex gap-2 justify-content-end">
+            <button class="btn btn-outline-secondary" @click="fecharModalRegerarBackup" :disabled="regenerandoBackup">Cancelar</button>
+            <button class="btn btn-primary" @click="confirmarRegerarBackup" :disabled="regenerandoBackup || codigoTotpRegerar.length < 6">
+              {{ regenerandoBackup ? 'Gerando...' : 'Regerar' }}
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <h2 class="h5 fw-bold mb-1">Novos códigos de backup</h2>
+          <p class="text-muted small mb-2">Guarde em local seguro. Eles só aparecem uma vez.</p>
+          <div class="bg-light rounded p-3 mb-3 font-monospace small">
+            <div v-for="(c, i) in codigosBackupRegenerados" :key="i">{{ c }}</div>
+          </div>
+          <div class="d-grid">
+            <button class="btn btn-primary" @click="fecharModalRegerarBackup">Concluir</button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal desativar verificação extra -->
+  <div v-if="modalDesativarVerificacaoExtraVisivel" class="modal-overlay d-flex align-items-center justify-content-center">
+    <div class="card shadow border-0 rounded-4" style="width: 100%; max-width: 420px;">
+      <div class="card-body p-4">
+        <h2 class="h5 fw-bold mb-1">Desativar verificação extra</h2>
+        <p class="text-muted small mb-4">Confirme sua senha para desativar a proteção por dois fatores.</p>
+
+        <div class="mb-4">
+          <label class="form-label">Senha atual:</label>
+          <div class="position-relative">
+            <input
+              v-model="senhaDesativarVerificacaoExtra"
+              :type="mostrarSenhaDesativarVerificacaoExtra ? 'text' : 'password'"
+              class="form-control pe-5 campo-senha"
+              placeholder="Digite sua senha"
+              @keyup.enter="confirmarDesativarVerificacaoExtra"
+              :disabled="desativandoVerificacaoExtra"
+            />
+            <button type="button" class="btn btn-sm border-0 bg-transparent position-absolute top-50 end-0 translate-middle-y me-2 text-muted" @click="mostrarSenhaDesativarVerificacaoExtra = !mostrarSenhaDesativarVerificacaoExtra" :aria-label="mostrarSenhaDesativarVerificacaoExtra ? 'Ocultar senha' : 'Mostrar senha'">
+              <i :class="mostrarSenhaDesativarVerificacaoExtra ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="erroDesativarVerificacaoExtra" class="alert alert-danger py-2 small mb-3">{{ erroDesativarVerificacaoExtra }}</div>
+
+        <div class="d-flex gap-2 justify-content-end">
+          <button class="btn btn-outline-secondary" @click="modalDesativarVerificacaoExtraVisivel = false" :disabled="desativandoVerificacaoExtra">Cancelar</button>
+          <button
+            class="btn btn-warning"
+            @click="confirmarDesativarVerificacaoExtra"
+            :disabled="desativandoVerificacaoExtra || !senhaDesativarVerificacaoExtra"
+          >
+            {{ desativandoVerificacaoExtra ? 'Desativando...' : 'Confirmar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal de confirmação de exclusão -->
   <div v-if="modalExclusaoVisivel" class="modal-overlay d-flex align-items-center justify-content-center">
     <div class="card shadow border-0 rounded-4" style="width: 100%; max-width: 460px;">
@@ -342,6 +580,37 @@
           </div>
         </template>
 
+        <!-- Verificação 2FA (quando ativa) -->
+        <template v-if="status2fa?.verificacaoExtraAtiva">
+          <hr class="my-3" />
+          <p class="small fw-semibold mb-2">Verificação em dois fatores</p>
+
+          <!-- TOTP ativo: digitar código do app -->
+          <template v-if="status2fa?.totpAtivo">
+            <label class="form-label small text-muted mb-1">Código do autenticador (6 dígitos):</label>
+            <CodigoInput v-model="codigoExclusao" :disabled="excluindo" class="mb-3" />
+          </template>
+
+          <!-- Email/SMS: enviar código primeiro -->
+          <template v-else>
+            <template v-if="!codigoExclusaoEnviado">
+              <button
+                class="btn btn-outline-primary btn-sm w-100 mb-2"
+                @click="enviarCodigoParaExclusao"
+                :disabled="enviandoCodigoExclusao"
+              >
+                {{ enviandoCodigoExclusao ? 'Enviando...' : 'Enviar código de verificação' }}
+              </button>
+            </template>
+            <template v-else>
+              <p class="small text-muted mb-2">
+                Código enviado para <strong>{{ exclusaoDestinoMascarado }}</strong>.
+              </p>
+              <CodigoInput v-model="codigoExclusao" :disabled="excluindo" class="mb-3" />
+            </template>
+          </template>
+        </template>
+
         <div v-if="erroExclusao" class="alert alert-danger py-2 small mb-3">{{ erroExclusao }}</div>
 
         <div class="d-flex gap-2 justify-content-end">
@@ -349,7 +618,10 @@
           <button
             class="btn btn-danger"
             @click="confirmarExclusao"
-            :disabled="excluindo || (conta.temSenha ? !senhaExclusao : !confirmouLeitura)"
+            :disabled="excluindo
+              || (conta.temSenha ? !senhaExclusao : !confirmouLeitura)
+              || (status2fa?.verificacaoExtraAtiva && codigoExclusao.length < 6)
+              || (status2fa?.verificacaoExtraAtiva && !status2fa?.totpAtivo && !codigoExclusaoEnviado)"
           >
             {{ excluindo ? 'Excluindo...' : 'Excluir conta' }}
           </button>
@@ -410,6 +682,7 @@ import {
   atualizarSessaoComConta,
   buscarMinhaConta,
   deletarMinhaConta,
+  enviarCodigoExclusaoConta,
   desvincularGoogle,
   fazerLogout,
   getToken,
@@ -423,6 +696,19 @@ import {
 import { getGoogleClientId, renderizarBotaoGoogle } from '../services/googleIdentityService'
 import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 import TelefoneInput from '../components/TelefoneInput.vue'
+import CodigoInput from '../components/CodigoInput.vue'
+import {
+  atualizarVerificacaoExtra,
+  confirmarTotp,
+  desativar2fa,
+  iniciarTotp,
+  adicionarIpAtual,
+  listarIpsConfiaveis,
+  obterStatus,
+  regerarBackupCodes,
+  removerIpConfiavel,
+  removerTodosIps as removerTodosIpsService
+} from '../services/doisFatoresService'
 
 const router = useRouter()
 const conta = ref(null)
@@ -470,6 +756,49 @@ const mostrarSenhaExclusao = ref(false)
 const confirmouLeitura = ref(false)
 const excluindo = ref(false)
 const erroExclusao = ref('')
+const codigoExclusao = ref('')
+const exclusaoTokenPendente = ref('')
+const exclusaoDestinoMascarado = ref('')
+const enviandoCodigoExclusao = ref(false)
+const codigoExclusaoEnviado = ref(false)
+
+// 2FA state
+const status2fa = ref(null)
+const carregando2fa = ref(false)
+const mensagem2fa = ref('')
+const erro2fa = ref('')
+
+const modalDesativarVerificacaoExtraVisivel = ref(false)
+const senhaDesativarVerificacaoExtra = ref('')
+const mostrarSenhaDesativarVerificacaoExtra = ref(false)
+const erroDesativarVerificacaoExtra = ref('')
+const desativandoVerificacaoExtra = ref(false)
+
+const modalTotpVisivel = ref(false)
+const etapaTotp = ref(1)
+const qrDataUrl = ref('')
+const codigoTotp = ref('')
+const erroTotp = ref('')
+const confirmandoTotp = ref(false)
+const codigosBackup = ref([])
+
+const modalDesativar2faVisivel = ref(false)
+const senhaDesativar2fa = ref('')
+const erroDesativar2fa = ref('')
+const desativando2fa = ref(false)
+
+const modalRegerarBackupVisivel = ref(false)
+const codigoTotpRegerar = ref('')
+const erroRegerarBackup = ref('')
+const regenerandoBackup = ref(false)
+const codigosBackupRegenerados = ref([])
+
+// IPs confiáveis state
+const ipsConfiaveis = ref([])
+const removendoIps = ref(false)
+const adicionandoIpAtual = ref(false)
+const rotuloIpAtual = ref('')
+const erroIps = ref('')
 
 const senhaEmFoco = ref(false)
 const confirmacaoEmFoco = ref(false)
@@ -691,6 +1020,11 @@ function abrirModalExclusao() {
   mostrarSenhaExclusao.value = false
   confirmouLeitura.value = false
   erroExclusao.value = ''
+  codigoExclusao.value = ''
+  exclusaoTokenPendente.value = ''
+  exclusaoDestinoMascarado.value = ''
+  enviandoCodigoExclusao.value = false
+  codigoExclusaoEnviado.value = false
   modalExclusaoVisivel.value = true
 }
 
@@ -698,12 +1032,37 @@ function fecharModalExclusao() {
   modalExclusaoVisivel.value = false
 }
 
+async function enviarCodigoParaExclusao() {
+  erroExclusao.value = ''
+  enviandoCodigoExclusao.value = true
+  try {
+    const resp = await enviarCodigoExclusaoConta()
+    exclusaoTokenPendente.value = resp.tokenPendente
+    exclusaoDestinoMascarado.value = resp.destinoMascarado
+    codigoExclusaoEnviado.value = true
+  } catch (e) {
+    erroExclusao.value = extrairMensagemErro(e, 'Não foi possível enviar o código.')
+  } finally {
+    enviandoCodigoExclusao.value = false
+  }
+}
+
 async function confirmarExclusao() {
   erroExclusao.value = ''
   excluindo.value = true
 
   try {
-    await deletarMinhaConta(conta.value.temSenha ? { senha: senhaExclusao.value } : null)
+    const payload = conta.value.temSenha ? { senha: senhaExclusao.value } : null
+    if (status2fa.value?.verificacaoExtraAtiva) {
+      const dados = payload ?? {}
+      dados.codigo = codigoExclusao.value
+      if (!status2fa.value?.totpAtivo) {
+        dados.tokenPendente = exclusaoTokenPendente.value
+      }
+      await deletarMinhaConta(dados)
+    } else {
+      await deletarMinhaConta(payload)
+    }
     logout()
     router.push('/login')
   } catch (e) {
@@ -781,6 +1140,192 @@ async function desvinculaGoogle() {
   }
 }
 
+// 2FA functions
+async function carregarStatus2fa() {
+  try {
+    status2fa.value = await obterStatus()
+  } catch { /* silently fail */ }
+}
+
+async function toggleVerificacaoExtra(event) {
+  const ativo = event.target.checked
+  erro2fa.value = ''
+  mensagem2fa.value = ''
+
+  if (!ativo && conta.value?.temSenha) {
+    event.target.checked = true
+    senhaDesativarVerificacaoExtra.value = ''
+    mostrarSenhaDesativarVerificacaoExtra.value = false
+    erroDesativarVerificacaoExtra.value = ''
+    modalDesativarVerificacaoExtraVisivel.value = true
+    return
+  }
+
+  carregando2fa.value = true
+  try {
+    await atualizarVerificacaoExtra(ativo)
+    await carregarStatus2fa()
+    if (ativo) await carregarIpsConfiaveis()
+    mensagem2fa.value = ativo ? 'Verificação extra ativada.' : 'Verificação extra desativada.'
+  } catch (e) {
+    erro2fa.value = extrairMensagemErro(e, 'Não foi possível alterar a configuração.')
+    event.target.checked = !ativo
+  } finally {
+    carregando2fa.value = false
+  }
+}
+
+async function confirmarDesativarVerificacaoExtra() {
+  erroDesativarVerificacaoExtra.value = ''
+  desativandoVerificacaoExtra.value = true
+  try {
+    await atualizarVerificacaoExtra(false, senhaDesativarVerificacaoExtra.value)
+    await carregarStatus2fa()
+    modalDesativarVerificacaoExtraVisivel.value = false
+    mensagem2fa.value = 'Verificação extra desativada.'
+  } catch (e) {
+    erroDesativarVerificacaoExtra.value = extrairMensagemErro(e, 'Não foi possível desativar.')
+  } finally {
+    desativandoVerificacaoExtra.value = false
+  }
+}
+
+async function iniciarSetupTotp() {
+  erro2fa.value = ''
+  carregando2fa.value = true
+  try {
+    const { otpauthUri } = await iniciarTotp()
+    const QRCode = (await import('qrcode')).default
+    qrDataUrl.value = await QRCode.toDataURL(otpauthUri)
+    codigoTotp.value = ''
+    erroTotp.value = ''
+    etapaTotp.value = 1
+    modalTotpVisivel.value = true
+  } catch (e) {
+    erro2fa.value = extrairMensagemErro(e, 'Não foi possível iniciar o setup TOTP.')
+  } finally {
+    carregando2fa.value = false
+  }
+}
+
+async function confirmarSetupTotp() {
+  erroTotp.value = ''
+  confirmandoTotp.value = true
+  try {
+    const { codigosBackup: codigos } = await confirmarTotp(codigoTotp.value)
+    codigosBackup.value = codigos
+    etapaTotp.value = 3
+    await carregarStatus2fa()
+  } catch (e) {
+    erroTotp.value = extrairMensagemErro(e, 'Código inválido.')
+    codigoTotp.value = ''
+  } finally {
+    confirmandoTotp.value = false
+  }
+}
+
+function fecharModalTotp() {
+  modalTotpVisivel.value = false
+  codigosBackup.value = []
+  codigoTotp.value = ''
+  qrDataUrl.value = ''
+}
+
+function abrirModalDesativar2fa() {
+  senhaDesativar2fa.value = ''
+  erroDesativar2fa.value = ''
+  modalDesativar2faVisivel.value = true
+}
+
+async function confirmarDesativar2fa() {
+  erroDesativar2fa.value = ''
+  desativando2fa.value = true
+  try {
+    await desativar2fa(senhaDesativar2fa.value)
+    modalDesativar2faVisivel.value = false
+    mensagem2fa.value = 'Autenticação 2FA desativada.'
+    await carregarStatus2fa()
+  } catch (e) {
+    erroDesativar2fa.value = extrairMensagemErro(e, 'Não foi possível desativar.')
+  } finally {
+    desativando2fa.value = false
+  }
+}
+
+function abrirModalRegerarBackup() {
+  codigoTotpRegerar.value = ''
+  erroRegerarBackup.value = ''
+  codigosBackupRegenerados.value = []
+  modalRegerarBackupVisivel.value = true
+}
+
+function fecharModalRegerarBackup() {
+  modalRegerarBackupVisivel.value = false
+  codigosBackupRegenerados.value = []
+}
+
+async function confirmarRegerarBackup() {
+  erroRegerarBackup.value = ''
+  regenerandoBackup.value = true
+  try {
+    const { codigosBackup: codigos } = await regerarBackupCodes(codigoTotpRegerar.value)
+    codigosBackupRegenerados.value = codigos
+    await carregarStatus2fa()
+  } catch (e) {
+    erroRegerarBackup.value = extrairMensagemErro(e, 'Código inválido.')
+    codigoTotpRegerar.value = ''
+  } finally {
+    regenerandoBackup.value = false
+  }
+}
+
+// IPs confiáveis functions
+async function adicionarDispositivoAtual() {
+  adicionandoIpAtual.value = true
+  erroIps.value = ''
+  try {
+    await adicionarIpAtual(rotuloIpAtual.value.trim() || null)
+    rotuloIpAtual.value = ''
+    await carregarIpsConfiaveis()
+  } catch (e) {
+    erroIps.value = extrairMensagemErro(e, 'Não foi possível adicionar o dispositivo.')
+  } finally {
+    adicionandoIpAtual.value = false
+  }
+}
+
+async function carregarIpsConfiaveis() {
+  try {
+    ipsConfiaveis.value = await listarIpsConfiaveis()
+  } catch { /* silently fail */ }
+}
+
+async function removerIp(id) {
+  removendoIps.value = true
+  erroIps.value = ''
+  try {
+    await removerIpConfiavel(id)
+    await carregarIpsConfiaveis()
+  } catch (e) {
+    erroIps.value = extrairMensagemErro(e, 'Não foi possível remover o IP.')
+  } finally {
+    removendoIps.value = false
+  }
+}
+
+async function removerTodosIps() {
+  removendoIps.value = true
+  erroIps.value = ''
+  try {
+    await removerTodosIpsService()
+    ipsConfiaveis.value = []
+  } catch (e) {
+    erroIps.value = extrairMensagemErro(e, 'Não foi possível remover os IPs.')
+  } finally {
+    removendoIps.value = false
+  }
+}
+
 // Renderiza o botão do Google sempre que o elemento de vínculo aparecer no DOM
 // (ocorre após a conta ser carregada sem Google vinculado, ou após um desvínculo)
 watch(googleVincularButtonRef, async (el) => {
@@ -793,6 +1338,8 @@ onMounted(async () => {
   limparMensagens()
   await carregarConta()
   verificarSeEAdmin()
+  carregarStatus2fa()
+  carregarIpsConfiaveis()
 })
 </script>
 
@@ -804,4 +1351,11 @@ onMounted(async () => {
   z-index: 1050;
   padding: 1rem;
 }
+
+.form-switch-lg .form-check-input {
+  width: 3em;
+  height: 1.5em;
+  cursor: pointer;
+}
+
 </style>

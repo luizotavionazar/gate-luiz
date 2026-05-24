@@ -9,11 +9,14 @@ API de autenticação pronta para reutilização, construída com Spring Boot e 
 - Cadastro de conta com e-mail e senha
 - Login com JWT (RS256 assimétrico, stateless) — aceita e-mail ou telefone + senha
 - Login e vinculação de conta com Google (OAuth via Google Identity Services)
+- **Autenticação de dois fatores (2FA):** TOTP via app autenticador (Google Authenticator, Authy etc.) com QR code e backup codes
+- **Proteção por IP reconhecido:** login de IP desconhecido exige verificação adicional por código (e-mail, SMS ou WhatsApp) ou TOTP — para todos os usuários, independente de ter 2FA ativado
+- **IPs confiáveis:** usuário pode marcar um dispositivo como confiável para não precisar verificar novamente
 - Confirmação de e-mail no cadastro e na alteração de e-mail
 - Recuperação e redefinição de senha por e-mail ou telefone (WhatsApp/SMS via Twilio)
 - Gerenciamento de conta autenticada: alterar nome, e-mail, senha e telefone
 - Definição de senha para contas criadas via Google
-- Exclusão de conta
+- Exclusão de conta com verificação de senha e, quando 2FA ativo, código obrigatório (TOTP ou OTP por e-mail/SMS)
 - Setup inicial guiado para configuração de envio de e-mail (SMTP)
 
 ### Arquitetura
@@ -35,9 +38,10 @@ O **backend** é o produto principal: uma API independente de frontend que qualq
 | Backend   | Java 21, Spring Boot 3, Spring Security, Flyway |
 | Banco     | PostgreSQL                                      |
 | Tokens    | JWT RS256 (nimbus, RSA assimétrico), Argon2 (senhas) |
+| 2FA       | TOTP RFC 6238 (samstevens/totp), backup codes Argon2 |
 | OAuth     | Google Identity Services                        |
 | E-mail    | JavaMail, credenciais criptografadas (BouncyCastle) |
-| Frontend  | Vue 3, Vite, Vue Router, Axios, Bootstrap 5     |
+| Frontend  | Vue 3, Vite, Vue Router, Axios, Bootstrap 5, qrcode |
 
 ## Início rápido
 
@@ -104,6 +108,7 @@ docker compose up --build
 | `JWT_RSA_PUBLIC_KEY`        | Chave pública RSA em base64 (X.509) — valida os JWTs e exposta via JWKS |
 | `JWT_EXPIRATION_MINUTES`    | Expiração do token (padrão: 120)       |
 | `GOOGLE_OAUTH_CLIENT_ID`    | Client ID do Google OAuth              |
+| `APP_TOTP_ISSUER`           | Nome exibido no app autenticador (padrão: `AuthLuiz`) |
 
 > As chaves RSA podem ser geradas com o utilitário `GerarChavesRSA.java` incluso no backend. Consulte `backend/.env.example` para instruções.
 

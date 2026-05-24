@@ -87,7 +87,16 @@ Os dois são ortogonais: um atacante sem conta é bloqueado pelo IP mas não tem
 
 **Logout e blacklist de tokens:** O logout é stateful por design — ao chamar `POST /auth/logout`, o `jti` (UUID único por token, incluído como claim na geração) é inserido na tabela `tokenBlacklist` com seu `expiraEm`. O `JwtBlacklistFilter` (`config/security/`), registrado após o `BearerTokenAuthenticationFilter` no chain, verifica a cada requisição autenticada se o `jti` consta na blacklist — se sim, retorna 401 imediatamente. Tokens sem `jti` (gerados antes desta funcionalidade) simplesmente não são verificáveis e passam normalmente. O frontend (`fazerLogout()` em `autenticacaoService.js`) chama a API antes de limpar o localStorage; se a chamada falhar (ex.: sem rede), o logout local ocorre mesmo assim. O interceptor 401 de `api.js` e a expiração detectada pelo router usam `logout()` simples (sem chamar a API) pois o token já é inválido.
 
-**Migrações de banco:** Flyway (`db/migration/V*.sql`). O schema usa identificadores camelCase entre aspas (Hibernate `PhysicalNamingStrategyStandardImpl` + `globally_quoted_identifiers=true`). O DDL está como `validate` — sempre crie um novo arquivo de migração para alterações no schema. `V1__schema_inicial.sql` contém o schema base; V2–V20 aplicam alterações incrementais. A V17–V18 refina o tipo da coluna `publicId` na tabela `usuario`. A V20 remove a coluna `tokenCancelamento` da tabela `tokenRecuperacaoSenha`.
+**Proteção por IP reconhecido e 2FA:** Todo login que passa pela validação de senha verifica se o IP é conhecido antes de emitir o JWT. Um IP é considerado conhecido se for igual a `usuario.ultimoIp` OU se estiver na tabela `usuarioIpConfiavel` para aquele usuário. Se o IP for desconhecido, o login retorna HTTP **202** com `LoginPendenteResponse` (contém `tokenPendente`, `tipo`, `destinoMascarado`) em vez do JWT. O cliente deve então chamar `POST /auth/login/verificar` com o código. Após verificação bem-sucedida, `completarLogin()` é chamado (emite JWT, atualiza `ultimoIp`) e opcionalmente o IP é salvo como confiável.
+
+- **TOTP:** segredo Base32 armazenado criptografado (`CriptografiaConfiguracaoService.criptografar()`/`descriptografar()` — AES/GCM). Validação com janela ±1 período (30 s) via `samstevens/totp`. Segredo intermediário em `totpSecretPendente` até confirmação do 1º código.
+- **Backup codes:** 8 códigos no formato `XXXX-XXXX` (charset sem ambíguos: sem 0/O, 1/I/L), armazenados como hashes Argon2 (`PasswordEncoder`). Exibidos em texto claro apenas na geração/regeneração.
+- **LoginPendente:** entidade com `tokenPendente` (64 chars aleatórios, opaco), `tipo` (TOTP | EMAIL | SMS | WHATSAPP), `codigo` (null para TOTP), `ipOrigem`, expira em 5 min, máx 5 tentativas erradas — após exceder, `encerradoEm` é preenchido e novo login é necessário.
+- **IPs confiáveis removidos ao trocar senha:** `ContaService.atualizarSenha()` chama `ipConfiavelService.removerTodos()` em ambos os ramos (alterar senha existente e definir pela primeira vez), para que o próximo login de qualquer IP peça verificação.
+- **Limpeza agendada:** `LimpezaAgendadaService` delega para `loginPendenteService.limparExpirados()` (remove registros com `expiraEm` > 1h atrás).
+- **Variável de ambiente:** `APP_TOTP_ISSUER` (padrão: `AuthLuiz`) — nome exibido no app autenticador. Registrada em `additional-spring-configuration-metadata.json`.
+
+**Migrações de banco:** Flyway (`db/migration/V*.sql`). O schema usa identificadores camelCase entre aspas (Hibernate `PhysicalNamingStrategyStandardImpl` + `globally_quoted_identifiers=true`). O DDL está como `validate` — sempre crie um novo arquivo de migração para alterações no schema. `V1__schema_inicial.sql` contém o schema base; V2–V20 aplicam alterações incrementais. A V17–V18 refina o tipo da coluna `publicId` na tabela `usuario`. A V20 remove a coluna `tokenCancelamento` da tabela `tokenRecuperacaoSenha`. V21–V24 implementam 2FA: colunas TOTP/IP no `usuario`, tabelas `usuarioIpConfiavel`, `codigoBackup2fa` e `loginPendente`.
 
 **Testes:** Utilizam Testcontainers com uma instância real de Postgres (sem mocks).
 
@@ -109,7 +118,10 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | Método | Caminho | Autenticação | Descrição |
 |--------|---------|--------------|-----------|
 | POST | `/auth/cadastro` | Pública | Cadastro de novo usuário |
-| POST | `/auth/login` | Pública | Login local: e-mail ou telefone + senha |
+| POST | `/auth/login` | Pública | Login local: e-mail ou telefone + senha — retorna 200 (JWT) se IP conhecido, ou 202 (`LoginPendenteResponse`) se IP desconhecido |
+| POST | `/auth/login/verificar` | Pública (tokenPendente) | Confirma o 2º fator (TOTP, OTP ou backup code) e retorna JWT; opcionalmente salva IP como confiável |
+| POST | `/auth/login/reenviar` | Pública (tokenPendente) | Reenvia o código OTP para o destino original (não disponível para TOTP) |
+| POST | `/auth/login/codigo-backup` | Pública (tokenPendente) | Usa código de backup 2FA (`XXXX-XXXX`) para concluir login pendente |
 | POST | `/auth/logout` | JWT | Invalida o token atual inserindo seu `jti` na blacklist — o token é rejeitado em todas as requisições subsequentes até expirar naturalmente |
 | POST | `/auth/oauth/google` | Pública | Login/cadastro via Google (retorna 409 se já existe conta com o e-mail — vincular via conta) |
 | POST | `/auth/oauth/google/vincular` | JWT | Vincula Google à conta autenticada (e-mail do Google deve ser igual ao da conta) |
@@ -122,13 +134,25 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | PATCH | `/auth/me/email` | JWT | Atualiza e-mail (bloqueado para contas com Google vinculado; novo e-mail deve ser diferente do atual; sempre envia e-mail de confirmação para o novo endereço e salva em `emailPendente`) |
 | PATCH | `/auth/me/senha` | JWT | Atualiza ou define senha (bloqueado se e-mail não verificado) |
 | PATCH | `/auth/me/telefone` | JWT | Atualiza ou remove telefone (null remove; sempre define `telefoneVerificado=false`; bloqueado se e-mail não verificado) |
-| DELETE | `/auth/me` | JWT | Exclui a conta do usuário autenticado (sempre permitido, independente do status de verificação) |
+| POST | `/auth/me/exclusao/codigo` | JWT | Envia código OTP para confirmação de exclusão de conta (somente para usuários sem TOTP, mas com verificacaoExtraAtiva) |
+| DELETE | `/auth/me` | JWT | Exclui a conta do usuário autenticado. Se `verificacaoExtraAtiva`: TOTP ativo → exige `codigo` (TOTP) no body; sem TOTP → exige `tokenPendente` + `codigo` (OTP enviado via `POST /auth/me/exclusao/codigo`) |
 | POST | `/auth/verificacao/email/confirmar` | JWT | Confirma e-mail via código de 6 dígitos — body: `{codigo}`; detecta automaticamente o tipo pendente (cadastro ou alteração de e-mail) |
 | POST | `/auth/verificacao/email/enviar` | JWT | Envia código de e-mail — detecta automaticamente o pendente: cadastro (`emailVerificado=false`) ou alteração (`emailPendente!=null`); cooldown de 2 min |
 | POST | `/auth/verificacao/telefone/confirmar` | JWT | Confirma alteração de telefone via código de 6 dígitos — body: `{codigo}` |
 | POST | `/auth/verificacao/telefone/enviar` | JWT | Envia código de verificação de telefone via WhatsApp/SMS (cooldown de 2 min) |
 | GET/POST | `/setup/**` | Chave mestra | Configuração inicial da aplicação |
 | GET | `/auth/.well-known/jwks.json` | Pública | Chave pública RSA em formato JWKS (usada por serviços externos para validar JWTs) |
+| POST | `/auth/me/2fa/totp/iniciar` | JWT | Inicia setup TOTP: gera segredo, retorna URI `otpauth://` para QR code |
+| POST | `/auth/me/2fa/totp/confirmar` | JWT | Confirma setup com 1º código TOTP; ativa TOTP e retorna 8 backup codes (exibidos uma única vez) |
+| DELETE | `/auth/me/2fa` | JWT | Desativa TOTP e remove backup codes (exige senha) |
+| POST | `/auth/me/2fa/backup-codes/regerar` | JWT | Gera novos 8 backup codes, invalidando os anteriores (exige código TOTP atual) |
+| GET | `/auth/me/2fa/status` | JWT | Retorna `{ totpAtivo, codigosRestantes, preferencia2fa }` |
+| PATCH | `/auth/me/2fa/verificacao-extra` | JWT | Ativa/desativa verificação extra — body: `{ ativo, senha? }`; ao desativar (`ativo: false`), exige `senha` para contas com senha definida |
+| PATCH | `/auth/me/2fa/preferencia` | JWT | Define canal de verificação para contas sem TOTP: `EMAIL` \| `SMS` \| `WHATSAPP` |
+| GET | `/auth/me/ips-confiaveis` | JWT | Lista IPs confiáveis da conta |
+| POST | `/auth/me/ips-confiaveis` | JWT | Adiciona IP manualmente como confiável |
+| DELETE | `/auth/me/ips-confiaveis/{id}` | JWT | Remove um IP confiável |
+| DELETE | `/auth/me/ips-confiaveis` | JWT | Remove todos os IPs confiáveis |
 | GET | `/auth/interno/usuarios` | X-Service-Key | Lista todos os usuários — endpoint server-to-server, protegido por header `X-Service-Key` (não aceita JWT) |
 
 ## Variáveis de Ambiente
@@ -142,6 +166,7 @@ Consulte `backend/.env.example`. Variáveis obrigatórias:
 - `JWT_EXPIRATION_MINUTES` — padrão: 120
 - `GOOGLE_OAUTH_CLIENT_ID` — client ID do Google OAuth
 - `AUTH_LUIZ_SERVICE_KEY` — chave compartilhada com o PermLuiz para autenticar chamadas internas (`/auth/interno/**`)
+- `APP_TOTP_ISSUER` — nome exibido no app autenticador TOTP (padrão: `AuthLuiz`)
 
 **Geração do par de chaves RSA:**
 ```bash

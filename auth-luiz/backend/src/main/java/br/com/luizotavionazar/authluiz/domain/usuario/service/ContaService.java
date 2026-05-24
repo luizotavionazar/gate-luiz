@@ -1,12 +1,16 @@
 package br.com.luizotavionazar.authluiz.domain.usuario.service;
 
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginPendenteResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarTelefoneRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.LoginPendente;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LoginPendenteService;
+import br.com.luizotavionazar.authluiz.domain.autenticacao.service.TotpService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.ControleAlteracaoEmail;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
 import br.com.luizotavionazar.authluiz.api.common.exception.ExcecaoLimiteTentativas;
@@ -49,6 +53,9 @@ public class ContaService {
     private final EmailService emailService;
     private final NotificacaoTelefonePort notificacaoTelefonePort;
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
+    private final br.com.luizotavionazar.authluiz.domain.autenticacao.service.IpConfiavelService ipConfiavelService;
+    private final LoginPendenteService loginPendenteService;
+    private final TotpService totpService;
 
     @Transactional
     public ContaResponse obterMinhaConta(String publicId) {
@@ -223,6 +230,7 @@ public class ContaService {
             usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
             usuarioRepository.save(usuario);
             tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), agora);
+            ipConfiavelService.removerTodos(usuario.getId());
             emailService.enviarNotificacaoAlteracaoSenha(usuario.getNome(), usuario.getEmail(), ip, agora);
             AuditoriaService.definirDetalhes("Senha alterada");
             return new MensagemResponse("Senha alterada com sucesso!");
@@ -231,6 +239,7 @@ public class ContaService {
         usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
         usuarioRepository.save(usuario);
         tokenRecuperacaoSenhaRepository.encerrarTokensAbertosDoUsuario(usuario.getId(), agora);
+        ipConfiavelService.removerTodos(usuario.getId());
         emailService.enviarNotificacaoAlteracaoSenha(usuario.getNome(), usuario.getEmail(), ip, agora);
         AuditoriaService.definirDetalhes("Senha definida pela primeira vez");
         return new MensagemResponse("Senha definida com sucesso!");
@@ -251,7 +260,42 @@ public class ContaService {
             }
         }
 
+        if (usuario.isVerificacaoExtraAtiva()) {
+            String codigo = request != null ? request.codigo() : null;
+            if (codigo == null || codigo.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Código de verificação obrigatório.");
+            }
+            if (usuario.isTotpAtivo()) {
+                if (!totpService.validarCodigo(usuario.getTotpSecret(), codigo)) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Código TOTP inválido.");
+                }
+            } else {
+                String tokenPendente = request.tokenPendente();
+                if (tokenPendente == null || tokenPendente.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Token de verificação obrigatório.");
+                }
+                loginPendenteService.verificar(tokenPendente, codigo);
+            }
+        }
+
         usuarioRepository.delete(usuario);
+    }
+
+    @Transactional
+    public LoginPendenteResponse enviarCodigoExclusaoConta(String publicId, String ip) {
+        Usuario usuario = buscarUsuario(publicId);
+        if (!usuario.isVerificacaoExtraAtiva()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Verificação extra não está ativa.");
+        }
+        if (usuario.isTotpAtivo()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Use o código do seu aplicativo autenticador.");
+        }
+        LoginPendente lp = loginPendenteService.criar(usuario, ip);
+        return LoginPendenteResponse.from(lp, usuario);
     }
 
     private void validarLimiteAlteracaoEmail(Integer idUsuario) {

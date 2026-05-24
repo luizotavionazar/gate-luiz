@@ -9,6 +9,7 @@ Implementação de referência em Vue 3 + Vite para a API de autenticação Auth
 - **Axios** — cliente HTTP com injeção de token Bearer e logout automático em 401
 - **Bootstrap 5** + **Bootstrap Icons**
 - **Google Identity Services SDK** — login e vinculação com Google
+- **qrcode** — geração de QR code para setup TOTP (importação dinâmica)
 
 ## Estrutura do projeto
 
@@ -20,14 +21,25 @@ src/
 │   ├── api.js                    Instância Axios com Bearer token e interceptor 401
 │   │                             baseURL: VITE_API_BASE_URL se definida, senão http://localhost:8080
 │   ├── autenticacaoService.js    Armazenamento de token, expiração, chamadas de auth (mesma lógica de baseURL)
+│   │                             loginComStatus() retorna { status, data } para detectar 202 (login pendente)
+│   │                             enviarCodigoExclusaoConta() — dispara OTP para confirmar exclusão (sem TOTP)
 │   ├── googleIdentityService.js  Inicialização do SDK Google Identity Services
+│   ├── loginPendenteService.js   verificar(), reenviar(), usarCodigoBackup() — 2º fator no login
+│   ├── doisFatoresService.js     iniciarTotp(), confirmarTotp(), desativar2fa(), regerarBackupCodes()
+│   │                             atualizarVerificacaoExtra(ativo, senha?), obterStatus()
+│   │                             listarIpsConfiaveis(), removerIpConfiavel(), removerTodosIps()
 │   └── setupService.js           Verificação e conclusão do setup inicial
 ├── utils/
 │   └── extrairMensagemErro.js    Extrai mensagem de erro de respostas Axios
 └── views/
     ├── LoginView.vue                  Login local (e-mail ou telefone) e login com Google
+    │                                  Detecta resposta 202 e redireciona para /login/verificar
+    ├── VerificacaoLoginView.vue       2º fator no login: TOTP, OTP (e-mail/SMS/WhatsApp) e backup code
+    │                                  Checkbox "Confiar neste dispositivo" com nome opcional
     ├── CadastroView.vue               Cadastro com e-mail e senha
     ├── ContaView.vue                  Gerenciamento da conta autenticada
+    │                                  Inclui seção 2FA: setup TOTP em modal 3 etapas (QR → confirmar → backup codes)
+    │                                  Preferência de canal (e-mail/SMS/WhatsApp), lista de IPs confiáveis
     ├── RecuperarSenhaView.vue         Solicitação de recuperação de senha (e-mail ou telefone)
     ├── RedefinirSenhaView.vue         Verificação do código de recuperação — chama POST /auth/recuperacao/validar; passa estado via history.state para NovaSenhaView
     ├── NovaSenhaView.vue              Definição da nova senha — lê estado de history.state; redireciona para /recuperar-senha se acessada diretamente
@@ -72,6 +84,8 @@ npm run preview  # pré-visualização do build de produção
 - Cadastro com e-mail, senha e telefone (opcional)
 - Login local (e-mail ou telefone + senha)
 - Login com Google (Google Identity Services)
+- **Verificação de 2º fator no login** — quando o backend retorna 202, redireciona automaticamente para `/login/verificar` com o `tokenPendente`
+- **`VerificacaoLoginView`** — suporta TOTP (app autenticador), OTP (e-mail/SMS/WhatsApp com reenvio e cooldown de 60s) e código de backup (`XXXX-XXXX`); checkbox "Confiar neste dispositivo" com nome opcional
 - Recuperação e redefinição de senha por e-mail ou telefone via código de 6 dígitos
 - Cancelamento de token de recuperação via link no e-mail de alerta (canal telefone)
 
@@ -87,7 +101,10 @@ npm run preview  # pré-visualização do build de produção
 - Atualização ou remoção de telefone
 - Vinculação de conta Google (exige e-mail idêntico ao da conta)
 - Desvinculação de conta Google com confirmação de senha (bloqueada para contas criadas via Google)
-- Exclusão de conta com confirmação de senha
+- Exclusão de conta com confirmação de senha; quando 2FA ativo: TOTP exige código do autenticador, e-mail/SMS exige envio de OTP via botão + código recebido
+- Desativar verificação extra exige confirmação de senha (modal dedicado); contas sem senha desativam diretamente
+- **Seção 2FA:** ativar/desativar TOTP via modal 3 etapas (QR code → confirmar código → backup codes exibidos uma vez), preferência de canal de verificação (e-mail/SMS/WhatsApp), contador de backup codes restantes, regerar backup codes
+- **Seção IPs confiáveis:** lista de IPs com rótulo e data, remover individual ou todos
 - **Botão "Painel de Controle"** — visível somente ao admin mestre do PermLuiz (verificado via `GET /me/admin`); abre o PermLuiz passando o JWT no fragment da URL (`#token=<jwt>`)
 
 ### Setup inicial
@@ -103,6 +120,7 @@ npm run preview  # pré-visualização do build de produção
 | Setup não concluído | Redireciona para `/setup` (qualquer rota) |
 | Não autenticado em rota protegida | Redireciona para `/login` |
 | Autenticado tentando acessar `/login` ou `/cadastro` | Redireciona para `/conta` |
+| Login retorna 202 (IP desconhecido / 2FA) | `LoginView` redireciona para `/login/verificar` com `tokenPendente` na query |
 
 ## nginx como proxy reverso de API
 

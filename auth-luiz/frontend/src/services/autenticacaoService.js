@@ -23,6 +23,11 @@ export async function login(dados) {
   return response.data
 }
 
+export async function loginComStatus(dados) {
+  const response = await authApi.post('/auth/login', dados)
+  return { status: response.status, data: response.data }
+}
+
 export async function loginComGoogle(dados) {
   const response = await authApi.post('/auth/oauth/google', dados)
   return response.data
@@ -179,6 +184,13 @@ export async function deletarMinhaConta(dados) {
       Authorization: `Bearer ${getToken()}`
     },
     data: dados
+  })
+  return response.data
+}
+
+export async function enviarCodigoExclusaoConta() {
+  const response = await authApi.post('/auth/me/exclusao/codigo', null, {
+    headers: { Authorization: `Bearer ${getToken()}` }
   })
   return response.data
 }

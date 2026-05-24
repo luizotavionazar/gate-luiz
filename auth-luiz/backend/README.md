@@ -7,10 +7,11 @@ API REST de autenticação construída com Spring Boot 4 e Java 21. Stateless, b
 - **Java 21** + **Spring Boot 4**
 - **Spring Security** — OAuth2 Resource Server (JWT), stateless
 - **PostgreSQL** + **Flyway** — banco relacional com migrações versionadas
-- **Argon2** — hash de senhas (via Spring Security)
+- **Argon2** — hash de senhas e backup codes 2FA (via Spring Security)
 - **RS256 / RSA assimétrico (Nimbus)** — assinatura dos JWTs; chave pública exposta via JWKS
 - **JavaMail** — envio de e-mail transacional
-- **BouncyCastle** — criptografia das credenciais SMTP no banco
+- **BouncyCastle** — criptografia das credenciais SMTP e segredos TOTP no banco
+- **samstevens/totp 1.7.1** — geração e validação de TOTP RFC 6238 (compatível com Google Authenticator)
 - **Lombok** — redução de boilerplate nas entidades e serviços
 - **Testcontainers** — testes de integração com PostgreSQL real (sem mocks)
 
@@ -22,13 +23,17 @@ src/main/java/.../authluiz/
 ├── api/                             Camada HTTP (controllers + DTOs)
 │   ├── autenticacao/
 │   │   ├── controller/
-│   │   │   ├── AutenticacaoController   POST /auth/cadastro, /auth/login
+│   │   │   ├── AutenticacaoController   POST /auth/cadastro, /auth/login (→ 200 ou 202 com LoginPendente)
 │   │   │   │                            POST /auth/recuperacao/iniciar, /auth/recuperacao/redefinir
+│   │   │   ├── LoginPendenteController  POST /auth/login/verificar, /auth/login/reenviar
+│   │   │   │                            POST /auth/login/codigo-backup
 │   │   │   └── ConfirmacaoController    POST /auth/verificacao/email/confirmar (JWT)
 │   │   │                                POST /auth/verificacao/email/enviar (JWT)
 │   │   │                                POST /auth/verificacao/telefone/confirmar (JWT)
 │   │   │                                POST /auth/verificacao/telefone/enviar (JWT)
 │   │   └── dto/                         CadastroRequest/Response, LoginRequest/Response,
+│   │                                    LoginPendenteResponse, VerificarLoginPendenteRequest,
+│   │                                    ReenviarVerificacaoRequest, UsarCodigoBackupRequest,
 │   │                                    RecuperacaoSenhaRequest, RedefinirSenhaRequest,
 │   │                                    ConfirmarEmailRequest, ContaResponse, MensagemResponse
 │   ├── common/
@@ -36,9 +41,17 @@ src/main/java/.../authluiz/
 │   │   ├── handler/    ApiExceptionHandler  — trata ResponseStatusException globalmente
 │   │   └── IpUtils     Utilitário estático extrairIp(HttpServletRequest): X-Real-IP → X-Forwarded-For → getRemoteAddr()
 │   ├── conta/
-│   │   ├── controller/ ContaController      GET/PATCH /auth/me, DELETE /auth/me
+│   │   ├── controller/ ContaController      GET/PATCH /auth/me, POST /auth/me/exclusao/codigo, DELETE /auth/me
+│   │   │               DoisFatoresController POST /auth/me/2fa/totp/iniciar, /confirmar
+│   │   │                                    DELETE /auth/me/2fa
+│   │   │                                    POST /auth/me/2fa/backup-codes/regerar
+│   │   │                                    GET /auth/me/2fa/status
+│   │   │                                    PATCH /auth/me/2fa/verificacao-extra (senha obrigatória ao desativar)
+│   │   │                                    PATCH /auth/me/2fa/preferencia
+│   │   │               IPConfiavelController GET/POST/DELETE /auth/me/ips-confiaveis/**
 │   │   └── dto/        AtualizarNomeRequest, AtualizarEmailRequest,
 │   │                   AtualizarSenhaRequest, AtualizarTelefoneRequest, DeletarContaRequest
+│   │                   AtualizarVerificacaoExtraRequest (ativo + senha opcional)
 │   ├── oauth/
 │   │   ├── controller/ OAuthController      POST /auth/oauth/google
 │   │   │                                    POST/DELETE /auth/oauth/google/vincular
@@ -83,17 +96,25 @@ src/main/java/.../authluiz/
 │   │   │   ├── TokenConfirmacao         Token hasheado para verificação de cadastro e alteração de e-mail
 │   │   │   ├── TipoTokenConfirmacao     Enum: VERIFICACAO_CADASTRO | ALTERACAO_EMAIL | ALTERACAO_TELEFONE
 │   │   │   ├── ControleAlteracaoEmail   Rate limiting de alteração de e-mail por usuário
-│   │   │   └── PoliticaSenha            Regras de complexidade de senha
+│   │   │   ├── PoliticaSenha            Regras de complexidade de senha
+│   │   │   ├── LoginPendente            Login/ação aguardando 2º fator (TOTP/OTP); expira em 5 min, máx 5 tentativas
+│   │   │   ├── UsuarioIPConfiavel       IP marcado como confiável pelo usuário (sem verificação extra no próximo login)
+│   │   │   └── CodigoBackup2fa          Backup codes 2FA hasheados com Argon2 (8 por usuário, uso único)
 │   │   ├── event/   UsuarioCadastradoEvent
 │   │   ├── listener/ UsuarioCadastradoListener — envia e-mail de boas-vindas pós-commit (@Async + @TransactionalEventListener)
 │   │   ├── repository/  (JPA repositories para as entidades acima)
 │   │   ├── service/
-│   │   │   ├── AutenticacaoService      Cadastro e login local
+│   │   │   ├── AutenticacaoService      Cadastro e login local; retorna LoginPendenteResponse (202) se IP desconhecido
 │   │   │   ├── ConfirmacaoService       Confirmação e reenvio de e-mail de verificação
 │   │   │   ├── TokenConfirmacaoService  Criação, validação e encerramento de tokens de confirmação
 │   │   │   ├── TokenRecuperacaoSenhaService  Fluxo de recuperação de senha
 │   │   │   ├── EnvioCodigoRateLimitService  Rate limiting por IP para todos os envios de código (e-mail e SMS/WhatsApp)
 │   │   │   ├── PoliticaSenhaService     Validação de força de senha
+│   │   │   ├── LoginPendenteService     Criação, verificação, reenvio e limpeza de logins pendentes
+│   │   │   ├── IpConfiavelService       Gerenciamento de IPs confiáveis por usuário
+│   │   │   ├── CodigoBackupService      Geração (8 códigos XXXX-XXXX), uso e contagem de backup codes
+│   │   │   ├── TotpService              Geração de segredo, URI otpauth://, validação de código TOTP (±1 período)
+│   │   │   ├── DoisFatoresService       Orquestra setup, confirmação e desativação do TOTP; status e preferência
 │   │   │   ├── ConfirmacaoEmailExpiracaoService  @Scheduled — remove contas não confirmadas após 7 dias
 │   │   │   └── TokenRecuperacaoSenhaExpiracaoService  @Scheduled — limpa tokens expirados
 │   │   └── util/
@@ -128,7 +149,7 @@ src/main/java/.../authluiz/
 │       │                                registra qual OAuth provider originou o cadastro
 │       ├── repository/
 │       └── service/
-│           ├── ContaService             Gerenciamento da conta autenticada (nome, e-mail, senha, exclusão)
+│           ├── ContaService             Gerenciamento da conta autenticada (nome, e-mail, senha, exclusão com 2FA opcional)
 │           └── UsuarioService           Carregamento do usuário para autenticação
 │
 └── AuthLuizApplication.java            @SpringBootApplication + @EnableScheduling
@@ -151,6 +172,10 @@ src/main/java/.../authluiz/
 | `V11`–`V18` | Configuração Twilio, auditoria configurável, renomeações de colunas, token blacklist, `publicId` na tabela `usuario` |
 | `V19__token_cancelamento_recuperacao_senha.sql` | Adiciona coluna `tokenCancelamento` (VARCHAR 36, nullable) à tabela `tokenRecuperacaoSenha` |
 | `V20__remover_token_cancelamento_recuperacao_senha.sql` | Remove coluna `tokenCancelamento` da tabela `tokenRecuperacaoSenha` |
+| `V21__2fa_colunas_usuario.sql` | Adiciona colunas `ultimoIp`, `totpSecretPendente`, `totpSecret`, `totpAtivo`, `preferencia2fa` à tabela `usuario` |
+| `V22__usuario_ip_confiavel.sql` | Cria tabela `usuarioIpConfiavel` com índice único em `(idUsuario, ip)` e `ON DELETE CASCADE` |
+| `V23__codigo_backup_2fa.sql` | Cria tabela `codigoBackup2fa` para armazenar backup codes hasheados (Argon2) |
+| `V24__login_pendente.sql` | Cria tabela `loginPendente` para o estado de login aguardando 2º fator; índices em `tokenPendente`, `idUsuario` e `expiraEm` |
 
 > O DDL está em modo `validate`. Sempre crie um novo arquivo `V{n}__*.sql` para alterações no schema — nunca edite migrações existentes.
 
@@ -168,6 +193,7 @@ JWT_RSA_PUBLIC_KEY=...            # chave pública RSA em base64 (X.509)
 JWT_EXPIRATION_MINUTES=120
 GOOGLE_OAUTH_CLIENT_ID=...        # client ID do Google Cloud Console
 AUTH_LUIZ_SERVICE_KEY=...         # chave compartilhada com o PermLuiz para chamadas internas
+APP_TOTP_ISSUER=AuthLuiz          # nome exibido no app autenticador TOTP (padrão: AuthLuiz)
 AUDITORIA_ATIVIDADE=true          # habilita logs de atividade (padrão: true); logs de segurança sempre ativos
 AUDITORIA_RETENCAO_DIAS=90        # dias de retenção dos logs antes da limpeza automática (padrão: 90)
 TWILIO_ACCOUNT_SID=...            # Account SID do Twilio (obtenha em console.twilio.com)
@@ -427,15 +453,32 @@ Inicia a alteração de telefone: salva o número em `telefonePendente` e envia 
 
 ---
 
+**`POST /auth/me/exclusao/codigo`** — JWT
+
+Envia um código OTP por e-mail ou SMS para confirmar a exclusão de conta. Só disponível para usuários com `verificacaoExtraAtiva = true` e **sem** TOTP ativo (usuários com TOTP usam o código do app diretamente). Retorna `LoginPendenteResponse` com `tokenPendente` a ser usado no `DELETE /auth/me`.
+
+---
+
 **`DELETE /auth/me`** — JWT
 
-Exclui permanentemente a conta. Se o usuário tem senha definida, deve confirmá-la.
+Exclui permanentemente a conta. Se o usuário tem senha definida, deve confirmá-la. Se `verificacaoExtraAtiva = true`, também é obrigatório informar o código 2FA:
+
+- **TOTP ativo:** `{ "senha": "...", "codigo": "<código do app>" }`
+- **E-mail/SMS 2FA (sem TOTP):** `{ "senha": "...", "tokenPendente": "...", "codigo": "<OTP do e-mail>" }` — o `tokenPendente` vem do `POST /auth/me/exclusao/codigo`
 
 ```json
 { "senha": "@Senha123" }
 ```
 
-Contas sem senha (criadas via Google sem senha definida): envie body vazio `{}`.
+```json
+{ "senha": "@Senha123", "codigo": "123456" }
+```
+
+```json
+{ "senha": "@Senha123", "tokenPendente": "abc123...", "codigo": "654321" }
+```
+
+Contas sem senha (criadas via Google sem senha definida): omita o campo `senha`.
 
 ---
 
@@ -498,3 +541,147 @@ Expõe a chave pública RSA no formato JWKS. Usado pelo PermLuiz (e qualquer ser
 **`GET /auth/interno/usuarios`** — `X-Service-Key`
 
 Lista todos os usuários. Endpoint server-to-server — não aceita JWT, apenas o header `X-Service-Key`. Usado pelo PermLuiz para exibir a lista de usuários no painel de admin.
+
+---
+
+### Verificação de login pendente (`/auth/login`)
+
+**`POST /auth/login/verificar`** — Pública (usa `tokenPendente`)
+
+Confirma o 2º fator após um login que retornou 202. Opcionalmente marca o IP como confiável.
+
+```json
+{ "tokenPendente": "...", "codigo": "123456", "confiarEsteIp": true, "rotuloDispositivo": "Notebook pessoal" }
+```
+
+Retorna `LoginResponse` com JWT (igual ao `POST /auth/login` 200). Retorna 401 com tentativas restantes se o código for inválido.
+
+---
+
+**`POST /auth/login/reenviar`** — Pública (usa `tokenPendente`)
+
+Envia novo código para o destino original. Não disponível para tipo TOTP (400). Rate limiting por IP.
+
+```json
+{ "tokenPendente": "..." }
+```
+
+---
+
+**`POST /auth/login/codigo-backup`** — Pública (usa `tokenPendente`)
+
+Usa um código de backup 2FA (formato `XXXX-XXXX`) para concluir o login pendente. O código é invalidado após uso.
+
+```json
+{ "tokenPendente": "...", "codigoBackup": "ABCD-EF12" }
+```
+
+Retorna `LoginResponse` com JWT.
+
+---
+
+### Autenticação de dois fatores (`/auth/me/2fa`)
+
+**`POST /auth/me/2fa/totp/iniciar`** — JWT
+
+Gera um segredo TOTP e retorna a URI `otpauth://` para gerar o QR code no frontend.
+
+Resposta: `{ "otpauthUri": "otpauth://totp/AuthLuiz:email@...?secret=...&issuer=AuthLuiz" }`
+
+---
+
+**`POST /auth/me/2fa/totp/confirmar`** — JWT
+
+Confirma o setup TOTP com o primeiro código do app autenticador. Ativa o TOTP e gera 8 backup codes.
+
+```json
+{ "codigo": "123456" }
+```
+
+Resposta: `{ "codigosBackup": ["ABCD-1234", ...] }` — exibidos apenas uma vez.
+
+---
+
+**`DELETE /auth/me/2fa`** — JWT
+
+Desativa o 2FA (TOTP + backup codes removidos). Exige senha da conta para confirmar.
+
+```json
+{ "senha": "@Senha123" }
+```
+
+---
+
+**`POST /auth/me/2fa/backup-codes/regerar`** — JWT
+
+Gera novos 8 backup codes, invalidando os anteriores. Exige código TOTP atual.
+
+```json
+{ "codigo": "123456" }
+```
+
+---
+
+**`GET /auth/me/2fa/status`** — JWT
+
+Retorna o status atual do 2FA da conta.
+
+```json
+{ "totpAtivo": true, "codigosRestantes": 6, "preferencia2fa": "EMAIL" }
+```
+
+---
+
+**`PATCH /auth/me/2fa/verificacao-extra`** — JWT
+
+Ativa ou desativa a verificação extra por IP desconhecido. Ao **desativar** (`ativo: false`), exige confirmação de senha para contas com senha definida. Ativar não requer senha.
+
+```json
+{ "ativo": true }
+```
+
+```json
+{ "ativo": false, "senha": "@Senha123" }
+```
+
+---
+
+**`PATCH /auth/me/2fa/preferencia`** — JWT
+
+Define o canal de verificação para contas sem TOTP (usado quando o IP é desconhecido).
+
+```json
+{ "canal": "EMAIL" }
+```
+
+Valores aceitos: `EMAIL`, `SMS`, `WHATSAPP`.
+
+---
+
+### IPs confiáveis (`/auth/me/ips-confiaveis`)
+
+**`GET /auth/me/ips-confiaveis`** — JWT
+
+Lista os IPs confiáveis da conta.
+
+---
+
+**`POST /auth/me/ips-confiaveis`** — JWT
+
+Adiciona um IP manualmente.
+
+```json
+{ "ip": "189.0.0.1", "rotulo": "Escritório" }
+```
+
+---
+
+**`DELETE /auth/me/ips-confiaveis/{id}`** — JWT
+
+Remove um IP confiável específico.
+
+---
+
+**`DELETE /auth/me/ips-confiaveis`** — JWT
+
+Remove todos os IPs confiáveis da conta.
