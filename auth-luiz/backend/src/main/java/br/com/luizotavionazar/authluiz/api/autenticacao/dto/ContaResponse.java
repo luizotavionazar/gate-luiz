@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 public record ContaResponse(
         String publicId,
+        String username,
         String nome,
         String email,
         Boolean temSenha,
@@ -23,6 +24,7 @@ public record ContaResponse(
         ProviderExterno provider = usuario.getProviderOrigem();
         return new ContaResponse(
                 usuario.getPublicId(),
+                usuario.getUsername(),
                 usuario.getNome(),
                 usuario.getEmail(),
                 usuario.possuiSenha(),

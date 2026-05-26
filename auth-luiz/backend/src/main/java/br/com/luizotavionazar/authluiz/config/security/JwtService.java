@@ -29,8 +29,6 @@ public class JwtService {
                 .issuedAt(now)
                 .expiresAt(now.plus(expirationMinutes, ChronoUnit.MINUTES))
                 .subject(usuario.getPublicId())
-                .claim("email", usuario.getEmail())
-                .claim("name", usuario.getNome())
                 .build();
 
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).build();

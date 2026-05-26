@@ -1,6 +1,5 @@
 package br.com.luizotavionazar.authluiz.api.conta.controller;
 
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.*;
 import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
@@ -40,11 +39,10 @@ public class DoisFatoresController {
 
     @Auditavel(acao = AcaoAuditoria.DESATIVAR_2FA, categoria = CategoriaAuditoria.SEGURANCA)
     @DeleteMapping
-    public ResponseEntity<MensagemResponse> desativar(
+    public ResponseEntity<DoisFatoresStatusResponse> desativar(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody Desativar2faRequest request) {
-        doisFatoresService.desativar(jwt.getSubject(), request.senha());
-        return ResponseEntity.ok(new MensagemResponse("Autenticação de dois fatores desativada."));
+        return ResponseEntity.ok(doisFatoresService.desativar(jwt.getSubject(), request.senha()));
     }
 
     @Auditavel(acao = AcaoAuditoria.BACKUP_CODES_REGENERADOS, categoria = CategoriaAuditoria.SEGURANCA)
@@ -57,13 +55,10 @@ public class DoisFatoresController {
 
     @Auditavel(acao = AcaoAuditoria.ATIVAR_VERIFICACAO_EXTRA, categoria = CategoriaAuditoria.SEGURANCA)
     @PatchMapping("/verificacao-extra")
-    public ResponseEntity<MensagemResponse> atualizarVerificacaoExtra(
+    public ResponseEntity<DoisFatoresStatusResponse> atualizarVerificacaoExtra(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody AtualizarVerificacaoExtraRequest request) {
-        doisFatoresService.atualizarVerificacaoExtra(jwt.getSubject(), request.ativo(), request.senha());
-        String msg = request.ativo()
-                ? "Verificação extra ativada."
-                : "Verificação extra desativada.";
-        return ResponseEntity.ok(new MensagemResponse(msg));
+        return ResponseEntity.ok(
+                doisFatoresService.atualizarVerificacaoExtra(jwt.getSubject(), request.ativo(), request.senha()));
     }
 }

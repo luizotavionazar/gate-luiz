@@ -17,6 +17,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 
     Optional<Usuario> findByTelefone(String telefone);
 
+    Optional<Usuario> findByUsername(String username);
+
     boolean existsByEmail(String email);
 
     boolean existsByEmailAndIdNot(String email, Integer id);
@@ -24,6 +26,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     boolean existsByTelefone(String telefone);
 
     boolean existsByTelefoneAndIdNot(String telefone, Integer id);
+
+    boolean existsByUsername(String username);
+
+    boolean existsByUsernameAndIdNot(String username, Integer id);
 
     // Atualiza apenas a coluna emailPendente via JPQL direto para evitar que o
     // @UpdateTimestamp dispare — dataAtualiza só deve ser atualizada quando o

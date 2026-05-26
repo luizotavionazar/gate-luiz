@@ -1,10 +1,13 @@
 package br.com.luizotavionazar.authluiz.domain.autenticacao.service;
 
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.common.exception.ExcecaoLimiteTentativas;
 import br.com.luizotavionazar.authluiz.domain.auditoria.service.AuditoriaService;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TipoTokenConfirmacao;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.TokenConfirmacao;
+import br.com.luizotavionazar.authluiz.domain.identidadeexterna.entity.ProviderExterno;
+import br.com.luizotavionazar.authluiz.domain.identidadeexterna.repository.IdentidadeExternaRepository;
 import br.com.luizotavionazar.authluiz.domain.notificacao.port.NotificacaoTelefonePort;
 import br.com.luizotavionazar.authluiz.domain.notificacao.service.EmailService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
@@ -27,9 +30,10 @@ public class ConfirmacaoService {
     private final EmailService emailService;
     private final NotificacaoTelefonePort notificacaoTelefonePort;
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
+    private final IdentidadeExternaRepository identidadeExternaRepository;
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
-    public void confirmarEmail(String publicId, String codigo) {
+    public ContaResponse confirmarEmail(String publicId, String codigo) {
         Integer idUsuario = resolverIdInterno(publicId);
         TipoTokenConfirmacao tipo = detectarTipoPendente(idUsuario);
 
@@ -54,10 +58,14 @@ public class ConfirmacaoService {
                 : usuario.getEmail();
         AuditoriaService.definirDetalhes("E-mail: " + emailConfirmado);
         tokenConfirmacaoService.confirmar(token);
+
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(
+                usuario.getId(), ProviderExterno.GOOGLE);
+        return ContaResponse.from(usuario, temLoginGoogle);
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
-    public void confirmarTelefone(String publicId, String codigo) {
+    public ContaResponse confirmarTelefone(String publicId, String codigo) {
         Integer idUsuario = resolverIdInterno(publicId);
         TipoTokenConfirmacao tipo = detectarTipoPendenteTelefone(idUsuario);
         TokenConfirmacao token = tokenConfirmacaoService.buscarTokenValidoPorUsuario(idUsuario, tipo, codigo);
@@ -83,6 +91,10 @@ public class ConfirmacaoService {
         }
 
         tokenConfirmacaoService.confirmar(token);
+
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(
+                usuario.getId(), ProviderExterno.GOOGLE);
+        return ContaResponse.from(usuario, temLoginGoogle);
     }
 
     @Transactional(noRollbackFor = ExcecaoLimiteTentativas.class)

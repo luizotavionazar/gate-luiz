@@ -11,7 +11,20 @@
           <div class="row gx-2">
             <div class="col-md-12 mb-3">
               <label for="nome" class="form-label">Nome</label>
-              <input id="nome" v-model="form.nome" type="text" class="form-control" placeholder="Seu nome" required />
+              <input id="nome" v-model="form.nome" type="text" class="form-control" placeholder="Seu nome completo" required @input="aoDigitarNome" />
+            </div>
+
+            <div class="col-md-12 mb-3">
+              <label for="username" class="form-label">Username</label>
+              <input id="username" v-model="form.username" type="text" class="form-control" placeholder="meu_username" required autocomplete="username" @input="usernameEditado = true" />
+              <div class="form-text">
+                <template v-if="!usernameEditado && form.username">
+                  Gerado automaticamente com base no seu nome — você pode alterar.
+                </template>
+                <template v-else>
+                  4–30 caracteres. Apenas letras, números, ponto e underscore. Deve começar com letra.
+                </template>
+              </div>
             </div>
 
             <div class="col-md-12 mb-3">
@@ -82,7 +95,7 @@ import { extrairMensagemErro } from '../utils/extrairMensagemErro'
 import TelefoneInput from '../components/TelefoneInput.vue'
 
 const router = useRouter()
-const form = reactive({ nome: '', email: '', senha: '', confSenha: '', telefone: '' })
+const form = reactive({ username: '', nome: '', email: '', senha: '', confSenha: '', telefone: '' })
 const carregando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
@@ -90,6 +103,25 @@ const senhaEmFoco = ref(false)
 const confirmacaoEmFoco = ref(false)
 const mostrarSenha = ref(false)
 const mostrarConfSenha = ref(false)
+const usernameEditado = ref(false)
+
+function gerarUsernameDeNome(nome) {
+  const primeiroNome = nome.trim().split(/\s+/)[0] || ''
+  const base = primeiroNome
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+  if (!base || !/^[a-z]/.test(base)) return ''
+  const digits = Math.floor(Math.random() * 1000).toString()
+  return base.substring(0, 30 - digits.length) + digits
+}
+
+function aoDigitarNome() {
+  if (usernameEditado.value) return
+  const gerado = gerarUsernameDeNome(form.nome)
+  if (gerado) form.username = gerado
+}
 
 const senhaRegras = computed(() => ({
   tamanho: form.senha.length >= 8,
@@ -122,7 +154,13 @@ async function enviarCadastro() {
   carregando.value = true
 
   try {
-    await cadastrar({ nome: form.nome.trim(), email: form.email.trim(), senha: form.senha, telefone })
+    await cadastrar({
+      username: form.username.trim(),
+      nome: form.nome.trim(),
+      email: form.email.trim(),
+      senha: form.senha,
+      telefone
+    })
     sucesso.value = 'Cadastro realizado com sucesso! Redirecionando para o login...'
     setTimeout(() => router.push('/login'), 3200)
   } catch (e) {

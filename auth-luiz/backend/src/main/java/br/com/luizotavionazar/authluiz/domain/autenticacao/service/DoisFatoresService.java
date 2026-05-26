@@ -61,7 +61,7 @@ public class DoisFatoresService {
         return new ConfirmarTotpResponse(codigos);
     }
 
-    public void desativar(String publicId, String senha) {
+    public DoisFatoresStatusResponse desativar(String publicId, String senha) {
         Usuario usuario = buscar(publicId);
 
         if (!usuario.possuiSenha() || !passwordEncoder.matches(senha, usuario.getSenhaHash())) {
@@ -70,6 +70,7 @@ public class DoisFatoresService {
 
         usuarioRepository.desativarTotp(usuario.getId());
         codigoBackupService.deletarParaUsuario(usuario.getId());
+        return new DoisFatoresStatusResponse(false, 0, usuario.isVerificacaoExtraAtiva());
     }
 
     public ConfirmarTotpResponse regerarBackupCodes(String publicId, String codigo) {
@@ -87,7 +88,7 @@ public class DoisFatoresService {
         return new ConfirmarTotpResponse(codigos);
     }
 
-    public void atualizarVerificacaoExtra(String publicId, boolean ativo, String senha) {
+    public DoisFatoresStatusResponse atualizarVerificacaoExtra(String publicId, boolean ativo, String senha) {
         Usuario usuario = buscar(publicId);
         if (!usuario.isEmailVerificado()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -112,6 +113,8 @@ public class DoisFatoresService {
         }
         usuarioRepository.atualizarVerificacaoExtra(usuario.getId(), ativo);
         AuditoriaService.definirDetalhes(ativo ? "Verificação extra ativada" : "Verificação extra desativada");
+        int codigosRestantes = codigoBackupService.contar(usuario.getId());
+        return new DoisFatoresStatusResponse(usuario.isTotpAtivo(), codigosRestantes, ativo);
     }
 
     @Transactional(readOnly = true)

@@ -49,8 +49,9 @@ src/main/java/.../authluiz/
 │   │   │                                    PATCH /auth/me/2fa/verificacao-extra (senha obrigatória ao desativar)
 │   │   │                                    PATCH /auth/me/2fa/preferencia
 │   │   │               IPConfiavelController GET/POST/DELETE /auth/me/ips-confiaveis/**
-│   │   └── dto/        AtualizarNomeRequest, AtualizarEmailRequest,
-│   │                   AtualizarSenhaRequest, AtualizarTelefoneRequest, DeletarContaRequest
+│   │   └── dto/        AtualizarUsernameRequest, AtualizarNomeExibicaoRequest,
+│   │                   AtualizarEmailRequest, AtualizarSenhaRequest,
+│   │                   AtualizarTelefoneRequest, DeletarContaRequest
 │   │                   AtualizarVerificacaoExtraRequest (ativo + senha opcional)
 │   ├── oauth/
 │   │   ├── controller/ OAuthController      POST /auth/oauth/google
@@ -146,11 +147,13 @@ src/main/java/.../authluiz/
 │   │
 │   └── usuario/
 │       ├── entity/   Usuario            UserDetails do Spring Security; campo providerOrigem
-│       │                                registra qual OAuth provider originou o cadastro
+│       │                                registra qual OAuth provider originou o cadastro;
+│       │                                getNomeParaEmail() retorna nomeExibicao ?: username
 │       ├── repository/
 │       └── service/
-│           ├── ContaService             Gerenciamento da conta autenticada (nome, e-mail, senha, exclusão com 2FA opcional)
-│           └── UsuarioService           Carregamento do usuário para autenticação
+│           ├── ContaService             Gerenciamento da conta autenticada (username, nomeExibicao, e-mail, senha, exclusão com 2FA opcional)
+│           ├── UsuarioService           Carregamento do usuário para autenticação; cadastrar() aceita username + nomeExibicao
+│           └── UsernameValidator        Valida formato e bloqueia palavras reservadas
 │
 └── AuthLuizApplication.java            @SpringBootApplication + @EnableScheduling
 ```
@@ -282,19 +285,21 @@ docker compose -f ../compose-dev.yaml up -d
 
 **`POST /auth/cadastro`** — Pública
 
-Cria uma nova conta com e-mail e senha. Envia e-mail de boas-vindas. O código de verificação de e-mail não é enviado aqui — o usuário solicita depois na tela de conta.
+Cria uma nova conta. Envia e-mail de boas-vindas. O código de verificação de e-mail não é enviado aqui — o usuário solicita depois na tela de conta.
 
 ```json
-{ "nome": "João", "email": "joao@email.com", "senha": "@Senha123" }
+{ "username": "joao_silva", "email": "joao@email.com", "senha": "@Senha123", "nomeExibicao": "João Silva" }
 ```
 
-Resposta: `{ "publicId": "550e8400-e29b-41d4-a716-446655440000", "nome": "João", "email": "joao@email.com", "mensagem": "Conta criada! Verifique seu e-mail para ativar a conta." }`
+`nomeExibicao` é opcional. `username` deve ter 4–30 chars, começar com letra e conter apenas letras, números, ponto e underscore.
+
+Resposta: `{ "publicId": "550e8400...", "username": "joao_silva", "nomeExibicao": "João Silva", "email": "joao@email.com", "mensagem": "Conta criada! Verifique seu e-mail para ativar a conta." }`
 
 ---
 
 **`POST /auth/login`** — Pública
 
-Login com e-mail ou telefone + senha. Retorna JWT.
+Login com e-mail, telefone **ou** username + senha. O backend detecta o tipo do `identificador` automaticamente (`@` → e-mail; `+` ou apenas dígitos → telefone; demais → username). Retorna JWT.
 
 ```json
 { "identificador": "joao@email.com", "senha": "@Senha123" }
@@ -304,7 +309,11 @@ Login com e-mail ou telefone + senha. Retorna JWT.
 { "identificador": "+5511999999999", "senha": "@Senha123" }
 ```
 
-Resposta: `{ "token": "eyJ...", "nome": "João", "email": "...", "emailVerificado": true, "telefone": "...", "telefoneVerificado": false }`
+```json
+{ "identificador": "joao_silva", "senha": "@Senha123" }
+```
+
+Resposta: `{ "token": "eyJ...", "username": "joao_silva", "nomeExibicao": "João Silva", "email": "...", "emailVerificado": true, "telefone": "...", "telefoneVerificado": false }`
 
 ---
 
@@ -393,7 +402,8 @@ Retorna os dados completos da conta autenticada. Limpa automaticamente `emailPen
 ```json
 {
   "publicId": "550e8400-e29b-41d4-a716-446655440000",
-  "nome": "João",
+  "username": "joao_silva",
+  "nomeExibicao": "João Silva",
   "email": "joao@email.com",
   "emailVerificado": true,
   "emailPendente": null,
@@ -407,12 +417,22 @@ Retorna os dados completos da conta autenticada. Limpa automaticamente `emailPen
 
 ---
 
-**`PATCH /auth/me/nome`** — JWT
+**`PATCH /auth/me/username`** — JWT
 
-Atualiza o nome do usuário. Exige e-mail verificado.
+Atualiza o username da conta. Deve ter 4–30 chars, começar com letra, conter apenas letras, números, ponto e underscore. Usernames reservados são rejeitados.
 
 ```json
-{ "nome": "João Silva" }
+{ "username": "novo_username" }
+```
+
+---
+
+**`PATCH /auth/me/nomeExibicao`** — JWT
+
+Atualiza o nome de exibição (opcional, max 100 chars), usado nas saudações de e-mail. Enviar `null` ou string vazia remove o nome de exibição.
+
+```json
+{ "nomeExibicao": "João Silva" }
 ```
 
 ---

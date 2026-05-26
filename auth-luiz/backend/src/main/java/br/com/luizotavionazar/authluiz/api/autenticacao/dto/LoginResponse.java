@@ -4,6 +4,7 @@ import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 
 public record LoginResponse(
         String publicId,
+        String username,
         String nome,
         String email,
         Boolean temSenha,
@@ -18,6 +19,7 @@ public record LoginResponse(
     public static LoginResponse from(Usuario usuario, boolean temLoginGoogle, String token, long expiresInMinutes) {
         return new LoginResponse(
                 usuario.getPublicId(),
+                usuario.getUsername(),
                 usuario.getNome(),
                 usuario.getEmail(),
                 usuario.possuiSenha(),

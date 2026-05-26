@@ -27,11 +27,11 @@ public class AutenticacaoController {
 
     @Auditavel(acao = AcaoAuditoria.CADASTRO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/cadastro")
-    public ResponseEntity<CadastroResponse> cadastrar(
+    public ResponseEntity<ContaResponse> cadastrar(
             @Valid @RequestBody CadastroRequest request,
             HttpServletRequest httpRequest
     ) {
-        CadastroResponse response = autenticacaoService.cadastrar(request, extrairIp(httpRequest));
+        ContaResponse response = autenticacaoService.cadastrar(request, extrairIp(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

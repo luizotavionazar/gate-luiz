@@ -70,11 +70,34 @@
           <div class="col-lg-6">
             <div class="card shadow border-0 rounded-4 h-100">
               <div class="card-body p-4">
+                <h2 class="h5 mb-3">Alterar username</h2>
+                <form @submit.prevent="salvarUsername">
+                  <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input v-model="formUsername.username" class="form-control" placeholder="meu_username" required autocomplete="username" />
+                  </div>
+
+                  <div v-if="mensagemUsername" class="alert alert-success py-2 small">{{ mensagemUsername }}</div>
+                  <div v-if="erroUsername" class="alert alert-danger py-2 small">{{ erroUsername }}</div>
+
+                  <div class="d-grid">
+                    <button class="btn btn-primary" :disabled="salvandoUsername || !conta.emailVerificado">
+                      {{ salvandoUsername ? 'Salvando...' : 'Salvar username' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="card shadow border-0 rounded-4 h-100">
+              <div class="card-body p-4">
                 <h2 class="h5 mb-3">Alterar nome</h2>
                 <form @submit.prevent="salvarNome">
                   <div class="mb-3">
                     <label class="form-label">Nome</label>
-                    <input v-model="formNome.nome" class="form-control" placeholder="Seu nome" required />
+                    <input v-model="formNome.nome" class="form-control" placeholder="Seu nome completo" required />
                   </div>
 
                   <div v-if="mensagemNome" class="alert alert-success py-2 small">{{ mensagemNome }}</div>
@@ -257,9 +280,6 @@
                       <strong class="small">Dispositivos confiáveis</strong>
                       <div class="text-muted small">Acessos destes IPs não exigem verificação adicional.</div>
                     </div>
-                    <button v-if="ipsConfiaveis.length > 0" class="btn btn-sm btn-outline-danger flex-shrink-0" @click="removerTodosIps" :disabled="removendoIps">
-                      Remover todos
-                    </button>
                   </div>
 
                   <div class="d-flex gap-2 mb-3">
@@ -663,6 +683,7 @@ import api from '../services/api'
 import {
   atualizarMeuEmail,
   atualizarMeuNome,
+  atualizarMeuUsername,
   atualizarMeuTelefone,
   atualizarMinhaSenha,
   atualizarSessaoComConta,
@@ -673,7 +694,6 @@ import {
   fazerLogout,
   getToken,
   logout,
-  marcarSenhaNaSessao,
   reenviarVerificacao,
   reenviarVerificacaoTelefone,
   verificarSePermAdmin,
@@ -701,20 +721,24 @@ const conta = ref(null)
 const carregando = ref(true)
 const erro = ref('')
 
+const formUsername = reactive({ username: '' })
 const formNome = reactive({ nome: '' })
 const formEmail = reactive({ email: '' })
 const formSenha = reactive({ senhaAtual: '', novaSenha: '', confirmacao: '' })
 const formTelefone = reactive({ telefone: '' })
 
+const salvandoUsername = ref(false)
 const salvandoNome = ref(false)
 const salvandoEmail = ref(false)
 const salvandoSenha = ref(false)
 const salvandoTelefone = ref(false)
 
+const mensagemUsername = ref('')
 const mensagemNome = ref('')
 const mensagemEmail = ref('')
 const mensagemSenha = ref('')
 const mensagemTelefone = ref('')
+const erroUsername = ref('')
 const erroNome = ref('')
 const erroEmail = ref('')
 const erroSenha = ref('')
@@ -807,16 +831,19 @@ const mostrarRegrasSenha = computed(() => senhaEmFoco.value || formSenha.novaSen
 const mostrarValidacaoConfirmacao = computed(() => confirmacaoEmFoco.value || formSenha.confirmacao.length > 0)
 
 function preencherFormularios() {
+  formUsername.username = conta.value?.username || ''
   formNome.nome = conta.value?.nome || ''
   formEmail.email = conta.value?.emailPendente || conta.value?.email || ''
   formTelefone.telefone = conta.value?.telefonePendente || conta.value?.telefone || ''
 }
 
 function limparMensagens() {
+  mensagemUsername.value = ''
   mensagemNome.value = ''
   mensagemEmail.value = ''
   mensagemSenha.value = ''
   mensagemTelefone.value = ''
+  erroUsername.value = ''
   erroNome.value = ''
   erroEmail.value = ''
   erroSenha.value = ''
@@ -862,6 +889,23 @@ async function carregarConta() {
     console.error(e)
   } finally {
     carregando.value = false
+  }
+}
+
+async function salvarUsername() {
+  mensagemUsername.value = ''
+  erroUsername.value = ''
+  salvandoUsername.value = true
+
+  try {
+    conta.value = await atualizarMeuUsername({ username: formUsername.username.trim() })
+    atualizarSessaoComConta(conta.value)
+    mensagemUsername.value = 'Username atualizado com sucesso!'
+  } catch (e) {
+    erroUsername.value = extrairMensagemErro(e, 'Não foi possível atualizar o username.')
+    console.error(e)
+  } finally {
+    salvandoUsername.value = false
   }
 }
 
@@ -978,23 +1022,19 @@ async function salvarSenha() {
   salvandoSenha.value = true
 
   try {
-    const response = await atualizarMinhaSenha({
+    const contaAtualizada = await atualizarMinhaSenha({
       senhaAtual: conta.value.temSenha ? formSenha.senhaAtual : null,
       novaSenha: formSenha.novaSenha
     })
 
-    mensagemSenha.value = response.mensagem
+    mensagemSenha.value = conta.value.temSenha ? 'Senha alterada com sucesso!' : 'Senha definida com sucesso!'
     formSenha.senhaAtual = ''
     formSenha.novaSenha = ''
     formSenha.confirmacao = ''
 
-    if (conta.value) {
-      conta.value.temSenha = true
-      conta.value.dataAtualiza = new Date().toISOString()
-    }
-
-    marcarSenhaNaSessao()
-    await carregarConta()
+    conta.value = contaAtualizada
+    atualizarSessaoComConta(contaAtualizada)
+    preencherFormularios()
   } catch (e) {
     erroSenha.value = extrairMensagemErro(e, 'Não foi possível atualizar a senha.')
     console.error(e)
@@ -1151,8 +1191,7 @@ async function toggleVerificacaoExtra(event) {
 
   carregando2fa.value = true
   try {
-    await atualizarVerificacaoExtra(ativo)
-    await carregarStatus2fa()
+    status2fa.value = await atualizarVerificacaoExtra(ativo)
     if (ativo) await carregarIpsConfiaveis()
     mensagem2fa.value = ativo ? 'Verificação extra ativada.' : 'Verificação extra desativada.'
   } catch (e) {
@@ -1167,8 +1206,7 @@ async function confirmarDesativarVerificacaoExtra() {
   erroDesativarVerificacaoExtra.value = ''
   desativandoVerificacaoExtra.value = true
   try {
-    await atualizarVerificacaoExtra(false, senhaDesativarVerificacaoExtra.value)
-    await carregarStatus2fa()
+    status2fa.value = await atualizarVerificacaoExtra(false, senhaDesativarVerificacaoExtra.value)
     modalDesativarVerificacaoExtraVisivel.value = false
     mensagem2fa.value = 'Verificação extra desativada.'
   } catch (e) {
@@ -1247,10 +1285,9 @@ async function confirmarDesativar2fa() {
   erroDesativar2fa.value = ''
   desativando2fa.value = true
   try {
-    await desativar2fa(senhaDesativar2fa.value)
+    status2fa.value = await desativar2fa(senhaDesativar2fa.value)
     modalDesativar2faVisivel.value = false
     mensagem2fa.value = 'Autenticação 2FA desativada.'
-    await carregarStatus2fa()
   } catch (e) {
     erroDesativar2fa.value = extrairMensagemErro(e, 'Não foi possível desativar.')
   } finally {

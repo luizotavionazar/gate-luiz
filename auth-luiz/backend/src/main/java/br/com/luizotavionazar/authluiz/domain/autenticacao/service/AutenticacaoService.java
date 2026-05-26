@@ -51,7 +51,7 @@ public class AutenticacaoService {
     private static final int MAX_TENTATIVAS_RECUPERACAO = 5;
 
     @Transactional
-    public CadastroResponse cadastrar(CadastroRequest request, String ip) {
+    public ContaResponse cadastrar(CadastroRequest request, String ip) {
         String emailNormalizado = request.emailNormalizado();
 
         if (usuarioRepository.existsByEmail(emailNormalizado)) {
@@ -60,7 +60,12 @@ public class AutenticacaoService {
 
         politicaSenhaService.validar(request.senha());
 
-        Usuario usuario = usuarioService.cadastrar(request.nomeNormalizado(), emailNormalizado, request.senha(), request.telefone());
+        Usuario usuario = usuarioService.cadastrar(
+                request.usernameNormalizado(),
+                request.nomeNormalizado(),
+                emailNormalizado,
+                request.senha(),
+                request.telefone());
 
         usuario.setEmailVerificado(false);
         usuarioRepository.save(usuario);
@@ -69,19 +74,21 @@ public class AutenticacaoService {
                 new UsuarioCadastradoEvent(usuario.getPublicId(), usuario.getNome(), usuario.getEmail()));
 
         AuditoriaService.definirDetalhes("E-mail: " + emailNormalizado);
-        return CadastroResponse.from(usuario);
+        return ContaResponse.from(usuario, false);
     }
 
     @Transactional
     public Object login(LoginRequest request, String ip) {
         String identificadorNormalizado = request.identificadorNormalizado();
-        String msgCredenciaisInvalidas = request.isEmail()
-                ? "E-mail ou senha incorretos!"
-                : "Telefone ou senha incorretos!";
+        String msgCredenciaisInvalidas = "Credenciais inválidas!";
 
-        Usuario usuario = (request.isEmail()
-                ? usuarioRepository.findByEmail(identificadorNormalizado)
-                : usuarioRepository.findByTelefone(identificadorNormalizado))
+        Optional<Usuario> usuarioOpt = switch (request.tipoIdentificador()) {
+            case EMAIL    -> usuarioRepository.findByEmail(identificadorNormalizado);
+            case TELEFONE -> usuarioRepository.findByTelefone(identificadorNormalizado);
+            case USERNAME -> usuarioRepository.findByUsername(identificadorNormalizado);
+        };
+
+        Usuario usuario = usuarioOpt
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, msgCredenciaisInvalidas));
 
         if (!usuario.possuiSenha()) {
@@ -92,9 +99,11 @@ public class AutenticacaoService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, msgCredenciaisInvalidas);
         }
 
-        String detalhe = request.isEmail()
-                ? "E-mail: " + identificadorNormalizado
-                : "Telefone: " + identificadorNormalizado;
+        String detalhe = switch (request.tipoIdentificador()) {
+            case EMAIL    -> "E-mail: " + identificadorNormalizado;
+            case TELEFONE -> "Telefone: " + identificadorNormalizado;
+            case USERNAME -> "Username: " + identificadorNormalizado;
+        };
         AuditoriaService.definirDetalhes(detalhe);
 
         if (usuario.isVerificacaoExtraAtiva()) {

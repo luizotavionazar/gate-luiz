@@ -2,6 +2,7 @@ package br.com.luizotavionazar.authluiz.api.autenticacao.controller;
 
 import br.com.luizotavionazar.authluiz.api.common.IpUtils;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ConfirmarEmailRequest;
+import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
@@ -26,13 +27,12 @@ public class ConfirmacaoController {
 
     @Auditavel(acao = AcaoAuditoria.EMAIL_CONFIRMADO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/email/confirmar")
-    public ResponseEntity<MensagemResponse> confirmarEmail(
+    public ResponseEntity<ContaResponse> confirmarEmail(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ConfirmarEmailRequest request
     ) {
         String publicId = jwt.getSubject();
-        confirmacaoService.confirmarEmail(publicId, request.codigo());
-        return ResponseEntity.ok(new MensagemResponse("E-mail confirmado com sucesso!"));
+        return ResponseEntity.ok(confirmacaoService.confirmarEmail(publicId, request.codigo()));
     }
 
     @PostMapping("/email/enviar")
@@ -49,13 +49,12 @@ public class ConfirmacaoController {
 
     @Auditavel(acao = AcaoAuditoria.TELEFONE_CONFIRMADO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/telefone/confirmar")
-    public ResponseEntity<MensagemResponse> confirmarTelefone(
+    public ResponseEntity<ContaResponse> confirmarTelefone(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ConfirmarEmailRequest request
     ) {
         String publicId = jwt.getSubject();
-        confirmacaoService.confirmarTelefone(publicId, request.codigo());
-        return ResponseEntity.ok(new MensagemResponse("Telefone confirmado com sucesso!"));
+        return ResponseEntity.ok(confirmacaoService.confirmarTelefone(publicId, request.codigo()));
     }
 
     @PostMapping("/telefone/enviar")

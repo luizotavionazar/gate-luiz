@@ -36,11 +36,21 @@
           >
             <i class="bi bi-phone me-2"></i>Telefone
           </button>
+          <button
+            type="button"
+            class="btn flex-fill"
+            :class="canal === 'username' ? 'btn-primary' : 'btn-outline-secondary'"
+            @click="selecionarCanal('username')"
+          >
+            <i class="bi bi-at me-2"></i>Username
+          </button>
         </div>
 
         <form @submit.prevent="fazerLogin">
           <div class="mb-3">
-            <label :for="canal" class="form-label">{{ canal === 'email' ? 'E-mail' : 'Telefone' }}</label>
+            <label :for="canal" class="form-label">
+              {{ canal === 'email' ? 'E-mail' : canal === 'telefone' ? 'Telefone' : 'Username' }}
+            </label>
             <input
               v-if="canal === 'email'"
               id="email"
@@ -49,6 +59,16 @@
               class="form-control"
               placeholder="seuemail@exemplo.com"
               autocomplete="email"
+              required
+            />
+            <input
+              v-else-if="canal === 'username'"
+              id="username"
+              v-model="identificador"
+              type="text"
+              class="form-control"
+              placeholder="meu_username"
+              autocomplete="username"
               required
             />
             <TelefoneInput
@@ -124,9 +144,8 @@ async function fazerLogin() {
   googleMensagem.value = ''
 
   if (!identificador.value || !senha.value) {
-    mensagem.value = canal.value === 'email'
-      ? 'Preencha o e-mail e a senha.'
-      : 'Preencha o telefone e a senha.'
+    const campo = canal.value === 'email' ? 'e-mail' : canal.value === 'telefone' ? 'telefone' : 'username'
+    mensagem.value = `Preencha o ${campo} e a senha.`
     return
   }
 

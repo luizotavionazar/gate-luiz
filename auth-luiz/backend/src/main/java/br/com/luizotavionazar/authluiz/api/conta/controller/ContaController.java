@@ -3,11 +3,11 @@ package br.com.luizotavionazar.authluiz.api.conta.controller;
 import br.com.luizotavionazar.authluiz.api.common.IpUtils;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginPendenteResponse;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarTelefoneRequest;
+import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarUsernameRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
 import br.com.luizotavionazar.authluiz.config.auditoria.Auditavel;
 import br.com.luizotavionazar.authluiz.domain.auditoria.enums.AcaoAuditoria;
@@ -49,6 +49,16 @@ public class ContaController {
         return ResponseEntity.ok(contaService.obterMinhaConta(publicId));
     }
 
+    @Auditavel(acao = AcaoAuditoria.ALTERAR_USERNAME)
+    @PatchMapping("/username")
+    public ResponseEntity<ContaResponse> atualizarUsername(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody AtualizarUsernameRequest request
+    ) {
+        String publicId = jwt.getSubject();
+        return ResponseEntity.ok(contaService.atualizarUsername(publicId, request));
+    }
+
     @Auditavel(acao = AcaoAuditoria.ALTERAR_NOME)
     @PatchMapping("/nome")
     public ResponseEntity<ContaResponse> atualizarNome(
@@ -72,7 +82,7 @@ public class ContaController {
 
     @Auditavel(acao = AcaoAuditoria.ALTERAR_SENHA, categoria = CategoriaAuditoria.SEGURANCA)
     @PatchMapping("/senha")
-    public ResponseEntity<MensagemResponse> atualizarSenha(
+    public ResponseEntity<ContaResponse> atualizarSenha(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody AtualizarSenhaRequest request,
             HttpServletRequest httpRequest

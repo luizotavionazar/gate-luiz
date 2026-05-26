@@ -9,6 +9,6 @@ public record AtualizarNomeRequest(
         String nome
 ) {
     public String nomeNormalizado() {
-        return nome == null ? null : nome.trim();
+        return nome == null ? null : nome.strip();
     }
 }

@@ -24,7 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
+import java.util.concurrent.ThreadLocalRandom;
 @Service
 @RequiredArgsConstructor
 public class GoogleAuthService {
@@ -77,7 +79,10 @@ public class GoogleAuthService {
                     "Não foi possível criar a conta com Google porque o e-mail não foi confirmado pelo Google!");
         }
 
+        String username = gerarUsernameDeNome(googleUsuario.nomeNormalizado());
+
         Usuario novoUsuario = usuarioRepository.save(Usuario.builder()
+                .username(username)
                 .nome(googleUsuario.nomeNormalizado())
                 .email(googleUsuario.emailNormalizado())
                 .senhaHash(null)
@@ -161,6 +166,34 @@ public class GoogleAuthService {
 
         identidadeExternaRepository.deleteByUsuarioIdAndProvider(idUsuario, ProviderExterno.GOOGLE);
         return ContaResponse.from(usuario, false);
+    }
+
+    private String gerarUsernameDeNome(String nome) {
+        String primeiroNome = nome.split("\\s+")[0];
+        String base = Normalizer.normalize(primeiroNome, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]", "");
+
+        if (base.isEmpty() || !Character.isLetter(base.charAt(0))) {
+            base = "u" + base;
+        }
+
+        // tenta com sufixo de 3 dígitos; escala para 4 e 5 se houver colisão
+        for (int digits = 3; digits <= 5; digits++) {
+            int max = (int) Math.pow(10, digits);
+            for (int attempt = 0; attempt < 15; attempt++) {
+                String suffix = String.valueOf(ThreadLocalRandom.current().nextInt(max));
+                String prefix = base.substring(0, Math.min(base.length(), 30 - suffix.length()));
+                String candidate = prefix + suffix;
+                if (!usuarioRepository.existsByUsername(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+
+        // fallback: timestamp em milissegundos (praticamente impossível colidir)
+        return base.substring(0, Math.min(base.length(), 25)) + System.currentTimeMillis() % 100000;
     }
 
     private void criarVinculoGoogle(Usuario usuario, GoogleUsuarioInfo googleUsuario) {

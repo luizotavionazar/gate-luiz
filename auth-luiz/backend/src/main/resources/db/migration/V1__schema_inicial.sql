@@ -1,5 +1,6 @@
 CREATE TABLE "usuario" (
   "id"               BIGSERIAL    PRIMARY KEY,
+  "username"         VARCHAR(50)  NOT NULL,
   "nome"             VARCHAR(100) NOT NULL,
   "email"            VARCHAR(255) NOT NULL,
   "senhaHash"        VARCHAR(255) NULL,
@@ -8,7 +9,8 @@ CREATE TABLE "usuario" (
   "emailVerificado"  BOOLEAN      NOT NULL DEFAULT TRUE,
   "emailPendente"    VARCHAR(255) NULL,
   "providerOrigem"   VARCHAR(50)  NULL,
-  CONSTRAINT "usuario_email_uk" UNIQUE ("email")
+  CONSTRAINT "usuario_email_uk"    UNIQUE ("email"),
+  CONSTRAINT "usuario_username_uk" UNIQUE ("username")
 );
 
 CREATE TABLE "tokenRecuperacaoSenha" (

@@ -69,8 +69,10 @@ docker compose up --build
 **Fluxos principais:**
 
 - **Guarda de setup:** `SetupFilter` intercepta todas as requisições (exceto `/setup/**`) e redireciona para o setup se `configuracaoAplicacao.setupConcluido = false`. O setup é concluído via `POST /setup` usando `APP_SETUP_MASTER_KEY`.
-- **Autenticação:** Spring Security é stateless (sem sessões). O JWT é emitido pelo `JwtService` no login usando **RS256** (RSA 2048-bit assimétrico); todos os endpoints protegidos o validam via OAuth2 resource server. A chave privada assina o token; a chave pública está exposta em `GET /auth/.well-known/jwks.json` para que outros serviços (ex: PermLuiz) possam verificar tokens de forma autônoma. O CORS aceita `http://localhost:5173` e `http://localhost:5174` (PermLuiz). O claim `subject` do JWT contém o `publicId` (UUID) do usuário — nunca o ID numérico interno. Controllers extraem o publicId com `UUID.fromString(jwt.getSubject())` e os services o usam para buscar o usuário via `findByPublicId`.
-- **Identificador híbrido:** A entidade `Usuario` possui dois identificadores: `id` (Integer, autoincremento, chave primária, usado apenas internamente — FKs, queries JPQL, operações dentro dos services) e `publicId` (UUID v4, imutável, único, gerado via `@PrePersist`, exposto em todos os DTOs de resposta e no JWT `subject`). O objetivo é nunca vazar o ID numérico em respostas de API ou mensagens de erro. Entidades relacionadas (TokenConfirmacao, TokenRecuperacaoSenha, IdentidadeExterna, etc.) continuam referenciando `usuario.id` nas FKs — o publicId só é relevante na fronteira externa da API. Ao criar novas entidades relacionadas ao usuário, seguir o mesmo padrão: FK interna aponta para `usuario.id`, qualquer exposição externa usa `usuario.publicId`.
+- **Autenticação:** Spring Security é stateless (sem sessões). O JWT é emitido pelo `JwtService` no login usando **RS256** (RSA 2048-bit assimétrico); todos os endpoints protegidos o validam via OAuth2 resource server. A chave privada assina o token; a chave pública está exposta em `GET /auth/.well-known/jwks.json` para que outros serviços (ex: PermLuiz) possam verificar tokens de forma autônoma. O CORS aceita `http://localhost:5173` e `http://localhost:5174` (PermLuiz). O claim `subject` do JWT contém o `publicId` (UUID) do usuário — nunca o ID numérico interno. Controllers extraem o publicId com `UUID.fromString(jwt.getSubject())` e os services o usam para buscar o usuário via `findByPublicId`. **O JWT contém apenas o essencial para autenticação** (`subject`, `jti`, `issuer`, `issuedAt`, `expiresAt`) — dados do usuário como nome, e-mail e username não são incluídos no token para evitar informação desatualizada; quem precisar desses dados deve chamar `GET /auth/me` ou `GET /auth/interno/usuarios`.
+- **Identificador híbrido:** A entidade `Usuario` possui três identificadores: `id` (Integer, autoincremento, chave primária, usado apenas internamente — FKs, queries JPQL, operações dentro dos services), `publicId` (UUID v4, imutável, único, gerado via `@PrePersist`, exposto em todos os DTOs de resposta e no JWT `subject`) e `username` (String, 4–30 chars, único, alterável pelo usuário, usado como identificador público legível). O objetivo é nunca vazar o ID numérico em respostas de API ou mensagens de erro. Entidades relacionadas (TokenConfirmacao, TokenRecuperacaoSenha, IdentidadeExterna, etc.) continuam referenciando `usuario.id` nas FKs — o publicId só é relevante na fronteira externa da API. Ao criar novas entidades relacionadas ao usuário, seguir o mesmo padrão: FK interna aponta para `usuario.id`, qualquer exposição externa usa `usuario.publicId`.
+- **Username e nome:** O campo `username` é obrigatório, único e serve como identificador de login (4–30 chars; apenas letras, números, ponto e underscore; deve começar com letra). O campo `nome` é obrigatório (3–100 chars) e usado nas saudações de e-mail — use sempre `usuario.getNome()` ao construir e-mails (nunca `getNomeParaEmail()` — esse método não existe). `UsernameValidator` bloqueia palavras reservadas (`admin`, `root`, `system`, `support`, `help`, `api`, `auth`, `me`, `null`, `undefined`, `authluiz`, `login`, `logout`, `cadastro`, `conta`, `usuario`, `user`, `setup`, `interno`). Cadastro via Google OAuth gera username automático a partir da parte local do e-mail (com sufixo `_2`, `_3`... em caso de conflito); `nome` recebe o nome do perfil Google.
+- **Login unificado:** `POST /auth/login` aceita e-mail, telefone ou username no campo `identificador`. O `LoginRequest` detecta o tipo via `tipoIdentificador()`: `@` → EMAIL; starts with `+` ou só dígitos → TELEFONE; caso contrário → USERNAME. Resposta de erro é sempre genérica ("Credenciais inválidas!") independente do motivo — previne enumeração de identificadores.
 - **Recuperação de senha:** Aceita **e-mail ou telefone** como identificador. O código numérico de 6 dígitos é enviado por e-mail (via `EmailService`) quando o campo `email` é informado, ou via WhatsApp/SMS (via `NotificacaoTelefonePort`) quando o campo `telefone` é informado. O canal de telefone exige `telefoneVerificado = true` e Twilio configurado (503 se ausente). O código é armazenado em texto simples em `TokenRecuperacaoSenha.codigo` (hash seria inútil para 6 dígitos — a segurança vem da expiração de 5 min e do limite de tentativas). A redefinição ocorre em um único passo: `POST /auth/recuperacao/redefinir` recebe `{email|telefone, codigo, novaSenha}`. Proteção contra brute-force: após 5 tentativas erradas o código é bloqueado. A limpeza de tokens expirados é feita pelo `TokenRecuperacaoSenhaExpiracaoService`. Ambos os canais passam pelo mesmo `EnvioCodigoRateLimitService.validarLimitePorIp` — as regras de segurança são uniformes. **Alerta por e-mail no canal telefone:** quando a recuperação é iniciada via telefone, o sistema envia paralelamente um e-mail de alerta informativo ao endereço cadastrado, exibindo o número de telefone usado, o IP e o horário da solicitação. O e-mail não contém botão de cancelamento — a proteção real vem do OTP estar fisicamente no telefone do usuário.
 - **Google OAuth:** O frontend obtém um Google ID token via Google Identity Services SDK; o backend valida (`GoogleIdTokenValidatorService`/`GoogleAudienceValidator`) e emite seu próprio JWT. O vínculo com Google é gerenciado na tela de conta (`POST /auth/oauth/google/vincular` e `DELETE /auth/oauth/google/vincular`); o login com Google nunca vincula automaticamente — retorna 409 se o e-mail já existe. Vinculação exige que o e-mail do Google seja idêntico ao da conta. Desvinculação exige senha definida e confirmação por senha via modal. **Contas criadas via Google (`providerOrigem = GOOGLE`) não podem ser desvinculadas**; o campo `providerOrigem` (nullable `ProviderExterno` enum) no `Usuario` registra qual provider originou o cadastro — null indica e-mail/senha, valor preenchido indica OAuth. Esse campo é extensível para futuros providers (Apple, GitHub, etc.).
 - **Configuração de e-mail:** As credenciais SMTP ficam criptografadas na tabela `configuracaoAplicacao` via `CriptografiaConfiguracaoService` (BouncyCastle). O `EmailService` as lê em tempo de execução.
@@ -118,7 +120,7 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | Método | Caminho | Autenticação | Descrição |
 |--------|---------|--------------|-----------|
 | POST | `/auth/cadastro` | Pública | Cadastro de novo usuário |
-| POST | `/auth/login` | Pública | Login local: e-mail ou telefone + senha — retorna 200 (JWT) se IP conhecido, ou 202 (`LoginPendenteResponse`) se IP desconhecido |
+| POST | `/auth/login` | Pública | Login local: e-mail, telefone ou username + senha — retorna 200 (JWT) se IP conhecido, ou 202 (`LoginPendenteResponse`) se IP desconhecido |
 | POST | `/auth/login/verificar` | Pública (tokenPendente) | Confirma o 2º fator (TOTP, OTP ou backup code) e retorna JWT; opcionalmente salva IP como confiável |
 | POST | `/auth/login/reenviar` | Pública (tokenPendente) | Reenvia o código OTP para o destino original (não disponível para TOTP) |
 | POST | `/auth/login/codigo-backup` | Pública (tokenPendente) | Usa código de backup 2FA (`XXXX-XXXX`) para concluir login pendente |
@@ -130,7 +132,8 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | POST | `/auth/recuperacao/validar` | Pública | Valida o código de recuperação sem alterar a senha — body: `{email|telefone, codigo}`; decrementa tentativas em caso de erro; bloqueia após 5 tentativas erradas |
 | POST | `/auth/recuperacao/redefinir` | Pública | Redefine senha com código válido — body: `{email|telefone, codigo, novaSenha}` |
 | GET | `/auth/me` | JWT | Retorna dados da conta autenticada |
-| PATCH | `/auth/me/nome` | JWT | Atualiza nome do usuário |
+| PATCH | `/auth/me/username` | JWT | Atualiza username (4–30 chars, único; usernames reservados são rejeitados) |
+| PATCH | `/auth/me/nome` | JWT | Atualiza o nome do usuário (3–100 chars) |
 | PATCH | `/auth/me/email` | JWT | Atualiza e-mail (bloqueado para contas com Google vinculado; novo e-mail deve ser diferente do atual; sempre envia e-mail de confirmação para o novo endereço e salva em `emailPendente`) |
 | PATCH | `/auth/me/senha` | JWT | Atualiza ou define senha (bloqueado se e-mail não verificado) |
 | PATCH | `/auth/me/telefone` | JWT | Atualiza ou remove telefone (null remove; sempre define `telefoneVerificado=false`; bloqueado se e-mail não verificado) |
@@ -154,6 +157,25 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | DELETE | `/auth/me/ips-confiaveis/{id}` | JWT | Remove um IP confiável |
 | DELETE | `/auth/me/ips-confiaveis` | JWT | Remove todos os IPs confiáveis |
 | GET | `/auth/interno/usuarios` | X-Service-Key | Lista todos os usuários — endpoint server-to-server, protegido por header `X-Service-Key` (não aceita JWT) |
+
+## Convenção de Respostas REST
+
+Ao criar ou modificar endpoints, seguir sempre estas regras:
+
+- **`POST` de criação (ex: cadastro)** → `201 Created` + recurso completo (`ContaResponse`). Nunca retornar resposta parcial.
+- **`PATCH`/`DELETE` que mutam estado do usuário autenticado** → recurso completo atualizado (`ContaResponse` para dados da conta; `DoisFatoresStatusResponse` para estado 2FA). Nunca retornar `MensagemResponse` para operações com efeito colateral no recurso.
+- **`MensagemResponse`** → reservado para ações sem recurso associado: logout, envio de código, recuperação de senha, validação de código. Esses endpoints não alteram o estado de um recurso específico — comunicam apenas o resultado da ação.
+- **`GET`** → sempre retorna o recurso atual; nunca modifica estado.
+
+**Endpoints que **atualmente** retornam recurso completo:**
+- `POST /auth/cadastro` → `201 Created` + `ContaResponse`
+- `GET /auth/me` → `ContaResponse`
+- `PATCH /auth/me/{username,nome,email,telefone}` → `ContaResponse`
+- `POST /auth/verificacao/email/confirmar` → `ContaResponse`
+- `POST /auth/verificacao/telefone/confirmar` → `ContaResponse`
+- `PATCH /auth/me/senha` → `ContaResponse`
+- `DELETE /auth/me/2fa` → `DoisFatoresStatusResponse`
+- `PATCH /auth/me/2fa/verificacao-extra` → `DoisFatoresStatusResponse`
 
 ## Variáveis de Ambiente
 

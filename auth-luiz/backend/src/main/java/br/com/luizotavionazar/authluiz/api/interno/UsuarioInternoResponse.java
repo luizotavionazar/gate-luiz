@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 
 public record UsuarioInternoResponse(
         String publicId,
+        String username,
         String nome,
         String email,
         String telefone,
@@ -25,6 +26,7 @@ public record UsuarioInternoResponse(
                                             int codigosBackupRestantes, int ipsConfiaveis) {
         return new UsuarioInternoResponse(
                 u.getPublicId(),
+                u.getUsername(),
                 u.getNome(),
                 u.getEmail(),
                 u.getTelefone(),

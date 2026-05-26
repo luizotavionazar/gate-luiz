@@ -54,7 +54,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/recuperacao/validar").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
-                        .requestMatchers(HttpMethod.PATCH, "/auth/me/nome", "/auth/me/email", "/auth/me/senha").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/auth/me/nome", "/auth/me/username", "/auth/me/email", "/auth/me/senha").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(setupFilter, org.springframework.security.web.context.SecurityContextHolderFilter.class)

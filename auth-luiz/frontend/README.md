@@ -32,11 +32,11 @@ src/
 ├── utils/
 │   └── extrairMensagemErro.js    Extrai mensagem de erro de respostas Axios
 └── views/
-    ├── LoginView.vue                  Login local (e-mail ou telefone) e login com Google
+    ├── LoginView.vue                  Login local (e-mail, telefone ou username) e login com Google
     │                                  Detecta resposta 202 e redireciona para /login/verificar
     ├── VerificacaoLoginView.vue       2º fator no login: TOTP, OTP (e-mail/SMS/WhatsApp) e backup code
     │                                  Checkbox "Confiar neste dispositivo" com nome opcional
-    ├── CadastroView.vue               Cadastro com e-mail e senha
+    ├── CadastroView.vue               Cadastro com username, e-mail, senha e nomeExibicao (opcional)
     ├── ContaView.vue                  Gerenciamento da conta autenticada
     │                                  Inclui seção 2FA: setup TOTP em modal 3 etapas (QR → confirmar → backup codes)
     │                                  Preferência de canal (e-mail/SMS/WhatsApp), lista de IPs confiáveis
@@ -81,8 +81,8 @@ npm run preview  # pré-visualização do build de produção
 
 ### Autenticação
 
-- Cadastro com e-mail, senha e telefone (opcional)
-- Login local (e-mail ou telefone + senha)
+- Cadastro com username, e-mail, senha, telefone (opcional) e nome de exibição (opcional)
+- Login local (e-mail, telefone **ou** username + senha)
 - Login com Google (Google Identity Services)
 - **Verificação de 2º fator no login** — quando o backend retorna 202, redireciona automaticamente para `/login/verificar` com o `tokenPendente`
 - **`VerificacaoLoginView`** — suporta TOTP (app autenticador), OTP (e-mail/SMS/WhatsApp com reenvio e cooldown de 60s) e código de backup (`XXXX-XXXX`); checkbox "Confiar neste dispositivo" com nome opcional
@@ -91,8 +91,9 @@ npm run preview  # pré-visualização do build de produção
 
 ### Conta autenticada (`ContaView`)
 
-- Visualização dos dados da conta (nome, e-mail e telefone)
-- Alteração de nome
+- Visualização dos dados da conta (username, nomeExibicao, e-mail e telefone)
+- Alteração de username (4–30 chars, validação de formato e palavras reservadas)
+- Alteração de nome de exibição (opcional; usado em saudações de e-mail)
 - Alteração de e-mail (sempre exige confirmação via código de 6 dígitos; bloqueada para contas com Google vinculado)
 - Botão "Confirmar e-mail" no alerta de e-mail não verificado — envia o código sob demanda e redireciona para `/verificar-email`
 - Botão "Confirmar alteração" no alerta de e-mail pendente — envia o código e redireciona para `/verificar-email?tipo=alteracao`

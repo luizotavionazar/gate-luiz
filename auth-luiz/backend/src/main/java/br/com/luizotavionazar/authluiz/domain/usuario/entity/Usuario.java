@@ -33,6 +33,9 @@ public class Usuario implements UserDetails {
     @Column(name = "publicId", nullable = false, updatable = false, unique = true, length = 32)
     private String publicId;
 
+    @Column(name = "username", nullable = false, length = 50, unique = true)
+    private String username;
+
     @Column(name = "nome", nullable = false, length = 100)
     private String nome;
 
@@ -118,7 +121,7 @@ public class Usuario implements UserDetails {
 
     @Override
     public String getUsername() {
-        return email;
+        return username;
     }
 
     @Override

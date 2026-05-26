@@ -17,14 +17,21 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final PoliticaSenhaService politicaSenhaService;
+    private final UsernameValidator usernameValidator;
 
     @Transactional
-    public Usuario cadastrar(String nome, String email, String senha, String telefone) {
-        String nomeNormalizado = nome.trim();
-        String emailNormalizado = email.trim().toLowerCase();
+    public Usuario cadastrar(String username, String nome, String email, String senha, String telefone) {
+        String usernameNormalizado = username.strip().toLowerCase();
+        String emailNormalizado = email.strip().toLowerCase();
 
         if (usuarioRepository.existsByEmail(emailNormalizado)) {
             throw new IllegalArgumentException("E-mail já cadastrado!");
+        }
+
+        usernameValidator.validar(usernameNormalizado);
+
+        if (usuarioRepository.existsByUsername(usernameNormalizado)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username já em uso!");
         }
 
         politicaSenhaService.validar(senha);
@@ -36,7 +43,8 @@ public class UsuarioService {
         }
 
         Usuario usuario = Usuario.builder()
-                .nome(nomeNormalizado)
+                .username(usernameNormalizado)
+                .nome(nome.strip())
                 .email(emailNormalizado)
                 .senhaHash(passwordEncoder.encode(senha))
                 .telefone(telefoneNormalizado)

@@ -61,6 +61,15 @@ export async function buscarMinhaConta() {
   return response.data
 }
 
+export async function atualizarMeuUsername(dados) {
+  const response = await authApi.patch('/auth/me/username', dados, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`
+    }
+  })
+  return response.data
+}
+
 export async function atualizarMeuNome(dados) {
   const response = await authApi.patch('/auth/me/nome', dados, {
     headers: {
@@ -103,6 +112,7 @@ export function salvarSessao(loginResponse) {
   localStorage.setItem(TOKEN_KEY, loginResponse.token)
   localStorage.setItem(USER_KEY, JSON.stringify({
     publicId: loginResponse.publicId,
+    username: loginResponse.username,
     nome: loginResponse.nome,
     email: loginResponse.email,
     temSenha: Boolean(loginResponse.temSenha),
@@ -117,6 +127,7 @@ export function atualizarSessaoComConta(conta) {
   localStorage.setItem(USER_KEY, JSON.stringify({
     ...usuarioAtual,
     publicId: conta.publicId,
+    username: conta.username,
     nome: conta.nome,
     email: conta.email,
     temSenha: Boolean(conta.temSenha),

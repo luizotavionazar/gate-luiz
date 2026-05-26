@@ -2,11 +2,11 @@ package br.com.luizotavionazar.authluiz.domain.usuario.service;
 
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.ContaResponse;
 import br.com.luizotavionazar.authluiz.api.autenticacao.dto.LoginPendenteResponse;
-import br.com.luizotavionazar.authluiz.api.autenticacao.dto.MensagemResponse;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarEmailRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarNomeRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarSenhaRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarTelefoneRequest;
+import br.com.luizotavionazar.authluiz.api.conta.dto.AtualizarUsernameRequest;
 import br.com.luizotavionazar.authluiz.api.conta.dto.DeletarContaRequest;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.LoginPendente;
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LoginPendenteService;
@@ -47,6 +47,7 @@ public class ContaService {
     private final IdentidadeExternaRepository identidadeExternaRepository;
     private final PasswordEncoder passwordEncoder;
     private final PoliticaSenhaService politicaSenhaService;
+    private final UsernameValidator usernameValidator;
     private final TokenRecuperacaoSenhaRepository tokenRecuperacaoSenhaRepository;
     private final TokenConfirmacaoService tokenConfirmacaoService;
     private final ControleAlteracaoEmailRepository controleAlteracaoEmailRepository;
@@ -80,18 +81,38 @@ public class ContaService {
     }
 
     @Transactional
-    public ContaResponse atualizarNome(String publicId, AtualizarNomeRequest request) {
+    public ContaResponse atualizarUsername(String publicId, AtualizarUsernameRequest request) {
         Usuario usuario = buscarUsuario(publicId);
 
         if (!usuario.isEmailVerificado()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Confirme seu e-mail antes de alterar o nome!");
+                    "Confirme seu e-mail antes de alterar o username!");
         }
 
-        String nomeAnterior = usuario.getNome();
+        String novoUsername = request.usernameSanitizado();
+        usernameValidator.validar(novoUsername);
+
+        if (usuarioRepository.existsByUsernameAndIdNot(novoUsername, usuario.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username já em uso!");
+        }
+
+        String anterior = usuario.getUsername();
+        usuario.setUsername(novoUsername);
+        usuarioRepository.save(usuario);
+        AuditoriaService.definirDetalhes("Username alterado de '" + anterior + "' para '" + novoUsername + "'");
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
+                ProviderExterno.GOOGLE);
+        return ContaResponse.from(usuario, temLoginGoogle);
+    }
+
+    @Transactional
+    public ContaResponse atualizarNome(String publicId, AtualizarNomeRequest request) {
+        Usuario usuario = buscarUsuario(publicId);
+
+        String anterior = usuario.getNome();
         usuario.setNome(request.nomeNormalizado());
         usuarioRepository.save(usuario);
-        AuditoriaService.definirDetalhes("Nome alterado de '" + nomeAnterior + "' para '" + request.nomeNormalizado() + "'");
+        AuditoriaService.definirDetalhes("Nome alterado de '" + anterior + "' para '" + request.nomeNormalizado() + "'");
         boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(usuario.getId(),
                 ProviderExterno.GOOGLE);
         return ContaResponse.from(usuario, temLoginGoogle);
@@ -200,7 +221,7 @@ public class ContaService {
     }
 
     @Transactional
-    public MensagemResponse atualizarSenha(String publicId, AtualizarSenhaRequest request, String ip) {
+    public ContaResponse atualizarSenha(String publicId, AtualizarSenhaRequest request, String ip) {
         Usuario usuario = buscarUsuario(publicId);
 
         if (!usuario.isEmailVerificado()) {
@@ -211,6 +232,8 @@ public class ContaService {
         politicaSenhaService.validar(request.novaSenha());
 
         LocalDateTime agora = LocalDateTime.now();
+        boolean temLoginGoogle = identidadeExternaRepository.existsByUsuarioIdAndProvider(
+                usuario.getId(), ProviderExterno.GOOGLE);
 
         if (usuario.possuiSenha()) {
             String senhaAtual = request.senhaAtual();
@@ -233,7 +256,7 @@ public class ContaService {
             ipConfiavelService.removerTodos(usuario.getId());
             emailService.enviarNotificacaoAlteracaoSenha(usuario.getNome(), usuario.getEmail(), ip, agora);
             AuditoriaService.definirDetalhes("Senha alterada");
-            return new MensagemResponse("Senha alterada com sucesso!");
+            return ContaResponse.from(usuario, temLoginGoogle);
         }
 
         usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
@@ -242,7 +265,7 @@ public class ContaService {
         ipConfiavelService.removerTodos(usuario.getId());
         emailService.enviarNotificacaoAlteracaoSenha(usuario.getNome(), usuario.getEmail(), ip, agora);
         AuditoriaService.definirDetalhes("Senha definida pela primeira vez");
-        return new MensagemResponse("Senha definida com sucesso!");
+        return ContaResponse.from(usuario, temLoginGoogle);
     }
 
     @Transactional
