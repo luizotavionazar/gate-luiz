@@ -42,14 +42,14 @@
             :class="canal === 'username' ? 'btn-primary' : 'btn-outline-secondary'"
             @click="selecionarCanal('username')"
           >
-            <i class="bi bi-at me-2"></i>Username
+            <i class="bi bi-at me-2"></i>Usuario
           </button>
         </div>
 
         <form @submit.prevent="fazerLogin">
           <div class="mb-3">
             <label :for="canal" class="form-label">
-              {{ canal === 'email' ? 'E-mail' : canal === 'telefone' ? 'Telefone' : 'Username' }}
+              {{ canal === 'email' ? 'E-mail' : canal === 'telefone' ? 'Telefone' : 'Usuario' }}
             </label>
             <input
               v-if="canal === 'email'"
@@ -67,7 +67,7 @@
               v-model="identificador"
               type="text"
               class="form-control"
-              placeholder="meu_username"
+              placeholder="meuUsuario123"
               autocomplete="username"
               required
             />

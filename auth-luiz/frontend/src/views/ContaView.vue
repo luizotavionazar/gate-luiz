@@ -70,30 +70,7 @@
           <div class="col-lg-6">
             <div class="card shadow border-0 rounded-4 h-100">
               <div class="card-body p-4">
-                <h2 class="h5 mb-3">Alterar username</h2>
-                <form @submit.prevent="salvarUsername">
-                  <div class="mb-3">
-                    <label class="form-label">Username</label>
-                    <input v-model="formUsername.username" class="form-control" placeholder="meu_username" required autocomplete="username" />
-                  </div>
-
-                  <div v-if="mensagemUsername" class="alert alert-success py-2 small">{{ mensagemUsername }}</div>
-                  <div v-if="erroUsername" class="alert alert-danger py-2 small">{{ erroUsername }}</div>
-
-                  <div class="d-grid">
-                    <button class="btn btn-primary" :disabled="salvandoUsername || !conta.emailVerificado">
-                      {{ salvandoUsername ? 'Salvando...' : 'Salvar username' }}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-6">
-            <div class="card shadow border-0 rounded-4 h-100">
-              <div class="card-body p-4">
-                <h2 class="h5 mb-3">Alterar nome</h2>
+                <h2 class="h5 mb-3">Alterar Nome</h2>
                 <form @submit.prevent="salvarNome">
                   <div class="mb-3">
                     <label class="form-label">Nome</label>
@@ -112,11 +89,33 @@
               </div>
             </div>
           </div>
+          <div class="col-lg-6">
+            <div class="card shadow border-0 rounded-4 h-100">
+              <div class="card-body p-4">
+                <h2 class="h5 mb-3">Alterar Usuário</h2>
+                <form @submit.prevent="salvarUsername">
+                  <div class="mb-3">
+                    <label class="form-label">Usuário</label>
+                    <input v-model="formUsername.username" class="form-control" placeholder="meu_username" required autocomplete="username" />
+                  </div>
+
+                  <div v-if="mensagemUsername" class="alert alert-success py-2 small">{{ mensagemUsername }}</div>
+                  <div v-if="erroUsername" class="alert alert-danger py-2 small">{{ erroUsername }}</div>
+
+                  <div class="d-grid">
+                    <button class="btn btn-primary" :disabled="salvandoUsername || !conta.emailVerificado">
+                      {{ salvandoUsername ? 'Salvando...' : 'Salvar usuário' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
 
           <div v-if="!conta.temLoginGoogle" class="col-lg-6">
             <div class="card shadow border-0 rounded-4 h-100">
               <div class="card-body p-4">
-                <h2 class="h5 mb-3">Alterar e-mail</h2>
+                <h2 class="h5 mb-3">Alterar E-mail</h2>
                 <form @submit.prevent="salvarEmail">
                   <div class="mb-3">
                     <label class="form-label">E-mail</label>
@@ -142,7 +141,7 @@
           <div class="col-lg-6">
             <div class="card shadow border-0 rounded-4 h-100">
               <div class="card-body p-4">
-                <h2 class="h5 mb-3">Alterar telefone</h2>
+                <h2 class="h5 mb-3">Alterar Telefone</h2>
                 <form @submit.prevent="salvarTelefone">
                   <div class="mb-3">
                     <label class="form-label">Telefone</label>
