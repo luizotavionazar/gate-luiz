@@ -12,6 +12,7 @@ API REST de autenticação construída com Spring Boot 4 e Java 21. Stateless, b
 - **JavaMail** — envio de e-mail transacional
 - **BouncyCastle** — criptografia das credenciais SMTP e segredos TOTP no banco
 - **samstevens/totp 1.7.1** — geração e validação de TOTP RFC 6238 (compatível com Google Authenticator)
+- **springdoc-openapi 2.8.9** — Swagger UI e especificação OpenAPI 3.0 em `/swagger-ui.html`
 - **Lombok** — redução de boilerplate nas entidades e serviços
 - **Testcontainers** — testes de integração com PostgreSQL real (sem mocks)
 
@@ -255,6 +256,19 @@ Para incluir localização em um futuro e-mail de segurança:
 2. Chame `construirLinhaLocalizacao(ip)` (método privado no `EmailService`) — retorna a `<tr>` HTML ou string vazia.
 3. Passe o resultado como `%s` na posição desejada do template de tabela.
 4. Certifique-se de que o IP chegou via `IpUtils.extrairIp()` no controller.
+
+## Swagger UI
+
+Com a API rodando, acesse:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+Todos os endpoints estão documentados com descrição de cada resposta e os próximos passos em fluxos multi-etapas. Para testar endpoints autenticados:
+1. Faça login via `POST /auth/login` e copie o `token`
+2. Clique em **Authorize** e cole o token (sem o prefixo `Bearer`)
+3. Endpoints de serviço interno (`/auth/interno/**`) expõem o campo `X-Service-Key` diretamente no "Try it out" — informe o valor de `AUTH_LUIZ_SERVICE_KEY`
 
 ## Rodando
 
@@ -564,6 +578,12 @@ Lista todos os usuários. Endpoint server-to-server — não aceita JWT, apenas 
 
 ---
 
+**`GET /auth/interno/usuarios/{publicId}/existe`** — `X-Service-Key`
+
+Verifica se um usuário com o `publicId` informado existe. Retorna `true` ou `false`. Usado pelo PermLuiz antes de atribuir um role para evitar vínculos órfãos.
+
+---
+
 ### Verificação de login pendente (`/auth/login`)
 
 **`POST /auth/login/verificar`** — Pública (usa `tokenPendente`)
@@ -604,7 +624,7 @@ Retorna `LoginResponse` com JWT.
 
 **`POST /auth/me/2fa/totp/iniciar`** — JWT
 
-Gera um segredo TOTP e retorna a URI `otpauth://` para gerar o QR code no frontend.
+Gera um segredo TOTP e retorna a URI `otpauth://` para gerar o QR code no frontend. **Pré-condição:** `verificacaoExtraAtiva` deve estar `true` — ative primeiro via `PATCH /auth/me/2fa/verificacao-extra`.
 
 Resposta: `{ "otpauthUri": "otpauth://totp/AuthLuiz:email@...?secret=...&issuer=AuthLuiz" }`
 

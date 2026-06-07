@@ -157,6 +157,7 @@ Manter esta tabela sempre atualizada ao criar, editar ou remover endpoints duran
 | DELETE | `/auth/me/ips-confiaveis/{id}` | JWT | Remove um IP confiável |
 | DELETE | `/auth/me/ips-confiaveis` | JWT | Remove todos os IPs confiáveis |
 | GET | `/auth/interno/usuarios` | X-Service-Key | Lista todos os usuários — endpoint server-to-server, protegido por header `X-Service-Key` (não aceita JWT) |
+| GET | `/auth/interno/usuarios/{publicId}/existe` | X-Service-Key | Verifica se um usuário com o publicId informado existe — usado pelo PermLuiz antes de atribuir roles |
 
 ## Convenção de Respostas REST
 

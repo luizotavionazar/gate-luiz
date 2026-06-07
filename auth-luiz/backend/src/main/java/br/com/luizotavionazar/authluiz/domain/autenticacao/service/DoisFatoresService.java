@@ -35,6 +35,11 @@ public class DoisFatoresService {
                     "Confirme seu e-mail antes de ativar a autenticação de dois fatores.");
         }
 
+        if (!usuario.isVerificacaoExtraAtiva()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Ative a verificação extra antes de configurar o autenticador TOTP.");
+        }
+
         String segredo = totpService.gerarSegredo();
         String segredoCriptografado = totpService.criptografar(segredo);
         usuarioRepository.atualizarTotpSecretPendente(usuario.getId(), segredoCriptografado);

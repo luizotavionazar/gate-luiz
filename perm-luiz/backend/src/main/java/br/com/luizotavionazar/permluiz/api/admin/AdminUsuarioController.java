@@ -11,6 +11,12 @@ import br.com.luizotavionazar.permluiz.domain.usuariorole.entity.UsuarioRole;
 import br.com.luizotavionazar.permluiz.domain.usuariorole.entity.UsuarioRoleId;
 import br.com.luizotavionazar.permluiz.infra.AuthLuizClient;
 import br.com.luizotavionazar.permluiz.infra.UsuarioAuthResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Tag(name = "Admin - Usuários")
 @RestController
 @RequestMapping("/admin/usuarios")
 @RequiredArgsConstructor
@@ -33,6 +40,13 @@ public class AdminUsuarioController {
     private final AdminVerificador adminVerificador;
     private final AuthLuizClient authLuizClient;
 
+    @Operation(summary = "Listar todos os usuários com roles",
+            description = "Busca todos os usuários no AuthLuiz (via X-Service-Key) e combina com os roles do PermLuiz.",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lista de usuários com seus roles"),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @GetMapping
     List<UsuarioComRolesResponse> listarUsuarios(@AuthenticationPrincipal Jwt jwt) {
         adminVerificador.exigirAdmin(jwt);
@@ -67,6 +81,12 @@ public class AdminUsuarioController {
                 .toList();
     }
 
+    @Operation(summary = "Listar roles de um usuário",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Roles do usuário"),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @GetMapping("/{idUsuario}/roles")
     List<RoleResponse> listarRoles(@AuthenticationPrincipal Jwt jwt, @PathVariable String idUsuario) {
         adminVerificador.exigirAdmin(jwt);
@@ -75,12 +95,24 @@ public class AdminUsuarioController {
                 .toList();
     }
 
+    @Operation(summary = "Atribuir role a usuário",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Role atribuído"),
+            @ApiResponse(responseCode = "404", description = "Usuário ou role não encontrado", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Usuário já possui esse role", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.ROLE_USUARIO_ATRIBUIDA)
     @PostMapping("/{idUsuario}/roles/{idRole}")
     ResponseEntity<Map<String, Object>> atribuirRole(@AuthenticationPrincipal Jwt jwt,
                                                      @PathVariable String idUsuario,
                                                      @PathVariable Long idRole) {
         adminVerificador.exigirAdmin(jwt);
+
+        if (!authLuizClient.usuarioExiste(idUsuario)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado!");
+        }
 
         Role role = roleRepository.findById(idRole)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role não encontrado!"));
@@ -101,6 +133,13 @@ public class AdminUsuarioController {
         );
     }
 
+    @Operation(summary = "Remover role de usuário",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Role removido"),
+            @ApiResponse(responseCode = "404", description = "Usuário não possui esse role", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.ROLE_USUARIO_REMOVIDA)
     @DeleteMapping("/{idUsuario}/roles/{idRole}")
     ResponseEntity<Void> removerRole(@AuthenticationPrincipal Jwt jwt,

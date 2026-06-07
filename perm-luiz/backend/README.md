@@ -7,6 +7,7 @@ API REST de controle de acesso construída com Spring Boot e Java 21. Stateless,
 - **Java 21** + **Spring Boot**
 - **Spring Security** — OAuth2 Resource Server (JWT RS256 via JWKS), stateless
 - **PostgreSQL** + **Flyway** — banco relacional com migrações versionadas
+- **springdoc-openapi 2.8.9** — Swagger UI e especificação OpenAPI 3.0 em `/swagger-ui.html`
 - **Lombok** — redução de boilerplate nas entidades e serviços
 - **Testcontainers** — testes de integração com PostgreSQL real (sem mocks)
 
@@ -98,6 +99,18 @@ AUTH_LUIZ_SERVICE_KEY=...          # chave compartilhada com o AuthLuiz (mesma e
 AUDITORIA_ATIVIDADE=true           # habilita logs de atividade de admin (padrão: true)
 AUDITORIA_RETENCAO_DIAS=90         # dias de retenção dos logs antes da limpeza automática (padrão: 90)
 ```
+
+## Swagger UI
+
+Com a API rodando, acesse:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+Todos os endpoints estão documentados com fluxos de uso e próximos passos. Para testar:
+1. Obtenha um JWT via `POST /auth/login` no AuthLuiz
+2. Clique em **Authorize** no Swagger UI e cole o token
 
 ## Rodando
 
@@ -242,7 +255,7 @@ Retorna apenas as roles de um usuário específico.
 
 **`POST /admin/usuarios/{idUsuario}/roles/{idRole}`** — JWT+Admin
 
-Atribui uma role a um usuário. Retorna `409` se o usuário já possui essa role.
+Atribui uma role a um usuário. Valida a existência do usuário no AuthLuiz antes de persistir (retorna `404` se não encontrado). Retorna `409` se o usuário já possui essa role.
 
 **`DELETE /admin/usuarios/{idUsuario}/roles/{idRole}`** — JWT+Admin
 

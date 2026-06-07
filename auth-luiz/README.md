@@ -35,12 +35,13 @@ O **backend** é o produto principal: uma API independente de frontend que qualq
 
 | Camada    | Tecnologia                                      |
 |-----------|-------------------------------------------------|
-| Backend   | Java 21, Spring Boot 3, Spring Security, Flyway |
+| Backend   | Java 21, Spring Boot 4, Spring Security, Flyway |
 | Banco     | PostgreSQL                                      |
 | Tokens    | JWT RS256 (nimbus, RSA assimétrico), Argon2 (senhas) |
 | 2FA       | TOTP RFC 6238 (samstevens/totp), backup codes Argon2 |
 | OAuth     | Google Identity Services                        |
 | E-mail    | JavaMail, credenciais criptografadas (BouncyCastle) |
+| Docs      | Swagger UI / OpenAPI 3.0 (springdoc-openapi)   |
 | Frontend  | Vue 3, Vite, Vue Router, Axios, Bootstrap 5, qrcode |
 
 ## Início rápido

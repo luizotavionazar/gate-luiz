@@ -2,18 +2,35 @@ package br.com.luizotavionazar.authluiz.api.autenticacao.dto;
 
 import br.com.luizotavionazar.authluiz.domain.autenticacao.entity.LoginPendente;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
+@Schema(description = "Resposta quando o login exige verificação adicional (2FA ou IP desconhecido)")
 public record LoginPendenteResponse(
+        @Schema(description = "Token opaco que deve ser passado em `/auth/login/verificar` ou `/auth/login/reenviar`")
         String tokenPendente,
+
+        @Schema(description = "Tipo de verificação exigida",
+                allowableValues = {"TOTP", "EMAIL", "SMS", "WHATSAPP", "AGUARDANDO_CANAL"},
+                example = "EMAIL")
         String tipo,
+
+        @Schema(description = "Destino mascarado para onde o código foi enviado (null para TOTP e AGUARDANDO_CANAL)",
+                example = "jo***@email.com", nullable = true)
         String destinoMascarado,
+
+        @Schema(description = "Canais alternativos disponíveis para reenvio do código",
+                example = "[\"SMS\", \"WHATSAPP\"]")
         List<String> canaisDisponiveis,
+
+        @Schema(description = "Minutos restantes até o token expirar", example = "5")
         int expiresInMinutes,
+
+        @Schema(description = "Mensagem informativa", example = "Verificação adicional necessária para este acesso.")
         String mensagem
 ) {
     public static LoginPendenteResponse from(LoginPendente lp, Usuario usuario) {

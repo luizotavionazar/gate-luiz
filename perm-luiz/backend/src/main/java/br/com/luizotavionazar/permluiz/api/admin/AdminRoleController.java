@@ -9,6 +9,12 @@ import br.com.luizotavionazar.permluiz.domain.permissao.entity.Permissao;
 import br.com.luizotavionazar.permluiz.domain.role.RoleRepository;
 import br.com.luizotavionazar.permluiz.domain.role.entity.Role;
 import br.com.luizotavionazar.permluiz.domain.usuariorole.UsuarioRoleRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Admin - Roles")
 @RestController
 @RequestMapping("/admin/roles")
 @RequiredArgsConstructor
@@ -31,12 +38,34 @@ public class AdminRoleController {
     private final UsuarioRoleRepository usuarioRoleRepository;
     private final AdminVerificador adminVerificador;
 
+    @Operation(summary = "Listar todos os roles",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lista de roles"),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @GetMapping
     List<RoleResponse> listar(@AuthenticationPrincipal Jwt jwt) {
         adminVerificador.exigirAdmin(jwt);
         return roleRepository.findAll().stream().map(RoleResponse::de).toList();
     }
 
+    @Operation(summary = "Criar role",
+            description = """
+                    Cria um novo role. O nome é convertido para maiúsculas.
+
+                    **Próximos passos após o 201:** o role criado ainda não tem permissões nem usuários.
+                    1. Associe permissões ao role: `PUT /admin/roles/{id}/permissions` com a lista de IDs \
+                    (obtenha os IDs disponíveis via `GET /admin/permissions`).
+                    2. Atribua o role a um usuário: `POST /admin/usuarios/{idUsuario}/roles/{idRole}` \
+                    usando o `id` do role retornado nesta resposta.
+                    """,
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Role criado — próximos passos: adicionar permissões e atribuir a usuários"),
+            @ApiResponse(responseCode = "409", description = "Nome já existe", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.ROLE_CRIADA)
     @PostMapping
     ResponseEntity<RoleResponse> criar(@AuthenticationPrincipal Jwt jwt,
@@ -57,6 +86,13 @@ public class AdminRoleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(RoleResponse.de(role));
     }
 
+    @Operation(summary = "Atualizar role",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Role atualizado"),
+            @ApiResponse(responseCode = "404", description = "Role não encontrado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.ROLE_ATUALIZADA)
     @PutMapping("/{id}")
     RoleResponse atualizar(@AuthenticationPrincipal Jwt jwt,
@@ -78,6 +114,15 @@ public class AdminRoleController {
         return RoleResponse.de(role);
     }
 
+    @Operation(summary = "Remover role",
+            description = "Remove o role se não estiver atribuído a nenhum usuário.",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Role removido"),
+            @ApiResponse(responseCode = "404", description = "Role não encontrado", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Role está vinculado a usuários", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.ROLE_DELETADA)
     @DeleteMapping("/{id}")
     ResponseEntity<Void> remover(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
@@ -96,6 +141,13 @@ public class AdminRoleController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Listar permissões de um role",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Permissões do role"),
+            @ApiResponse(responseCode = "404", description = "Role não encontrado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @GetMapping("/{id}/permissions")
     List<PermissaoResponse> listarPermissoes(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         adminVerificador.exigirAdmin(jwt);
@@ -106,6 +158,22 @@ public class AdminRoleController {
         return role.getPermissoes().stream().map(PermissaoResponse::de).toList();
     }
 
+    @Operation(summary = "Redefinir permissões de um role",
+            description = """
+                    Substitui **completamente** a lista de permissões do role pelo conjunto de IDs enviado. \
+                    Enviar uma lista vazia `[]` remove todas as permissões.
+
+                    Para obter os IDs de permissões disponíveis, use `GET /admin/permissions`.
+
+                    **Próximo passo após o 200:** o role está pronto com as permissões definidas. \
+                    Para atribuí-lo a um usuário, use `POST /admin/usuarios/{idUsuario}/roles/{idRole}`.
+                    """,
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Permissões atualizadas — próximo passo: atribuir o role a usuários via `POST /admin/usuarios/{idUsuario}/roles/{idRole}`"),
+            @ApiResponse(responseCode = "404", description = "Role não encontrado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Não é admin mestre", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.ROLE_PERMISSOES_REDEFINIDAS)
     @PutMapping("/{id}/permissions")
     Map<String, Object> redefinirPermissoes(@AuthenticationPrincipal Jwt jwt,

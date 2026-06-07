@@ -41,6 +41,42 @@
       "type": "java.lang.String",
       "description": "Nome do emissor exibido no aplicativo autenticador TOTP (ex: Google Authenticator).",
       "defaultValue": "AuthLuiz"
+    },
+    {
+      "name": "springdoc.api-docs.path",
+      "type": "java.lang.String",
+      "description": "Caminho do endpoint JSON da especificação OpenAPI.",
+      "defaultValue": "/v3/api-docs"
+    },
+    {
+      "name": "springdoc.swagger-ui.path",
+      "type": "java.lang.String",
+      "description": "Caminho do Swagger UI.",
+      "defaultValue": "/swagger-ui.html"
+    },
+    {
+      "name": "springdoc.swagger-ui.try-it-out-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Habilita o botão 'Try it out' no Swagger UI por padrão.",
+      "defaultValue": true
+    },
+    {
+      "name": "springdoc.swagger-ui.filter",
+      "type": "java.lang.Boolean",
+      "description": "Habilita a caixa de filtro de endpoints no Swagger UI.",
+      "defaultValue": true
+    },
+    {
+      "name": "springdoc.swagger-ui.operations-sorter",
+      "type": "java.lang.String",
+      "description": "Ordenação dos endpoints no Swagger UI: alpha (alfabético) ou method (por método HTTP).",
+      "defaultValue": "alpha"
+    },
+    {
+      "name": "springdoc.default-produces-media-type",
+      "type": "java.lang.String",
+      "description": "Media type padrão de resposta para os endpoints documentados.",
+      "defaultValue": "application/json"
     }
   ]
 }

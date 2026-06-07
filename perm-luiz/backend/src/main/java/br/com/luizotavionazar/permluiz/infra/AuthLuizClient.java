@@ -26,6 +26,19 @@ public class AuthLuizClient {
                 .body(new ParameterizedTypeReference<>() {});
     }
 
+    public boolean usuarioExiste(String publicId) {
+        try {
+            Boolean existe = restClient.get()
+                    .uri(baseUrl + "/auth/interno/usuarios/" + publicId + "/existe")
+                    .header("X-Service-Key", serviceKey)
+                    .retrieve()
+                    .body(Boolean.class);
+            return Boolean.TRUE.equals(existe);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public boolean tokenEstaInvalidado(String jti) {
         try {
             Boolean invalido = restClient.get()

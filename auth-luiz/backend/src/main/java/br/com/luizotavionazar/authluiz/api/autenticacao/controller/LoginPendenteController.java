@@ -14,6 +14,11 @@ import br.com.luizotavionazar.authluiz.domain.autenticacao.service.LoginPendente
 import br.com.luizotavionazar.authluiz.domain.autenticacao.service.AutenticacaoService;
 import br.com.luizotavionazar.authluiz.domain.usuario.entity.Usuario;
 import br.com.luizotavionazar.authluiz.domain.usuario.repository.UsuarioRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+@Tag(name = "Login Pendente (2FA)")
 @RestController
 @RequestMapping("/auth/login")
 @RequiredArgsConstructor
@@ -34,6 +40,14 @@ public class LoginPendenteController {
     private final EnvioCodigoRateLimitService envioCodigoRateLimitService;
     private final UsuarioRepository usuarioRepository;
 
+    @Operation(summary = "Verificar código 2FA e concluir login",
+            description = "Confirma o segundo fator (TOTP ou OTP por e-mail/SMS/WhatsApp) e retorna o JWT. " +
+                    "Opcionalmente salva o IP como confiável via `confiarEsteIp`.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Login concluído — retorna JWT"),
+            @ApiResponse(responseCode = "401", description = "Código inválido ou tokenPendente expirado", content = @Content),
+            @ApiResponse(responseCode = "410", description = "tokenPendente bloqueado após 5 tentativas", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.VERIFICACAO_LOGIN_SUCESSO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/verificar")
     public ResponseEntity<LoginResponse> verificar(
@@ -52,6 +66,14 @@ public class LoginPendenteController {
         return ResponseEntity.ok(autenticacaoService.completarLogin(usuario, ip));
     }
 
+    @Operation(summary = "Reenviar código OTP",
+            description = "Reenvia o código OTP para o canal escolhido (EMAIL, SMS ou WHATSAPP). " +
+                    "Não disponível para logins do tipo TOTP.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Código reenviado"),
+            @ApiResponse(responseCode = "429", description = "Limite de envios por IP atingido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "tokenPendente não encontrado ou expirado", content = @Content)
+    })
     @PostMapping("/reenviar")
     public ResponseEntity<ReenviarResponse> reenviar(
             @Valid @RequestBody ReenviarVerificacaoRequest request,
@@ -67,6 +89,13 @@ public class LoginPendenteController {
                 "Código reenviado com sucesso."));
     }
 
+    @Operation(summary = "Usar código de backup 2FA",
+            description = "Conclui login pendente usando um dos 8 códigos de backup (formato XXXX-XXXX). O código é invalidado após uso.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Login concluído — retorna JWT"),
+            @ApiResponse(responseCode = "401", description = "Código de backup inválido ou já utilizado", content = @Content),
+            @ApiResponse(responseCode = "404", description = "tokenPendente não encontrado ou expirado", content = @Content)
+    })
     @Auditavel(acao = AcaoAuditoria.VERIFICACAO_LOGIN_SUCESSO, categoria = CategoriaAuditoria.SEGURANCA)
     @PostMapping("/codigo-backup")
     public ResponseEntity<LoginResponse> usarCodigoBackup(

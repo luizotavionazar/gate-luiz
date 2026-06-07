@@ -27,9 +27,10 @@ O **backend** valida JWTs do AuthLuiz automaticamente via endpoint JWKS (sem seg
 
 | Camada    | Tecnologia                                      |
 |-----------|-------------------------------------------------|
-| Backend   | Java 21, Spring Boot, Spring Security, Flyway   |
+| Backend   | Java 21, Spring Boot 4, Spring Security, Flyway |
 | Banco     | PostgreSQL                                      |
 | Tokens    | JWT RS256 validado via JWKS do AuthLuiz         |
+| Docs      | Swagger UI / OpenAPI 3.0 (springdoc-openapi)   |
 | Frontend  | Vue 3, Vite, Vue Router, Axios, Bootstrap 5     |
 
 ## Pré-requisitos
